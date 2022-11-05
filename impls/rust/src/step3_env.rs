@@ -48,8 +48,8 @@ fn eval(ast: Rc<MalVal>, env: Rc<RefCell<Env>>) -> Result<Rc<MalVal>> {
     match ast.as_ref() {
         MalVal::List(list) if list.is_empty() => Ok(ast),
         MalVal::List(list) => {
-            match list[0].as_ref() {
-                MalVal::Symbol(symbol) => match symbol.as_str() {
+            if let MalVal::Symbol(symbol) = list[0].as_ref() {
+                match symbol.as_str() {
                     "def!" => match list[1].as_ref() {
                         MalVal::Symbol(symbol) => {
                             let v = eval(list[2].clone(), env.clone())?;
@@ -59,7 +59,7 @@ fn eval(ast: Rc<MalVal>, env: Rc<RefCell<Env>>) -> Result<Rc<MalVal>> {
                         _ => unreachable!(),
                     },
                     "let*" => {
-                        let n_env = Rc::new(RefCell::new(Env::new(env.clone())));
+                        let n_env = Rc::new(RefCell::new(Env::new(env)));
                         match list[1].as_ref() {
                             MalVal::List(binds) | MalVal::Vector(binds) => {
                                 let mut iter = binds.iter();
@@ -79,8 +79,7 @@ fn eval(ast: Rc<MalVal>, env: Rc<RefCell<Env>>) -> Result<Rc<MalVal>> {
                         return eval(list[2].clone(), n_env);
                     }
                     _ => (),
-                },
-                _ => (),
+                }
             }
             let ast = eval_ast(ast, env)?;
             match ast.as_ref() {
