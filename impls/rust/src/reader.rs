@@ -78,7 +78,7 @@ fn read_form(reader: &mut Peekable<Reader>) -> Result<MalVal> {
             iter.next_if_eq(&'-');
             if let Some(n) = iter.next() {
                 if n.is_ascii_digit() {
-                    if let Ok(i) = s.parse::<i32>() {
+                    if let Ok(i) = s.parse::<i64>() {
                         return Ok(MalVal::Integer(i));
                     }
                 }
@@ -114,6 +114,9 @@ fn read_form(reader: &mut Peekable<Reader>) -> Result<MalVal> {
                             Rc::new(first),
                         ]))
                     }
+                    "true" => Ok(MalVal::Bool(true)),
+                    "false" => Ok(MalVal::Bool(false)),
+                    "nil" => Ok(MalVal::Nil),
                     _ => Ok(MalVal::Symbol(s.to_string())),
                 }
             }
@@ -183,7 +186,6 @@ fn unescape(s: &str) -> Result<String> {
                 _ => unreachable!(),
             }
         } else if c == '"' {
-            println!("{buffer}");
             return Ok(buffer);
         } else {
             buffer.push(c);

@@ -10,13 +10,34 @@ pub enum MalVal {
     Prefix(&'static str),
     Keyword(String),
     String(String),
-    Integer(i32),
+    Integer(i64),
+    Bool(bool),
+    Nil,
     Symbol(String),
 }
 
 impl Display for MalVal {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.pr_str(true))
+    }
+}
+
+impl PartialEq for MalVal {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::List(l0), Self::List(r0)) => l0 == r0,
+            (Self::List(l0), Self::Vector(r0)) => l0 == r0,
+            (Self::Vector(l0), Self::List(r0)) => l0 == r0,
+            (Self::Vector(l0), Self::Vector(r0)) => l0 == r0,
+            (Self::HashMap(l0), Self::HashMap(r0)) => l0 == r0,
+            (Self::Prefix(l0), Self::Prefix(r0)) => l0 == r0,
+            (Self::Keyword(l0), Self::Keyword(r0)) => l0 == r0,
+            (Self::String(l0), Self::String(r0)) => l0 == r0,
+            (Self::Integer(l0), Self::Integer(r0)) => l0 == r0,
+            (Self::Bool(l0), Self::Bool(r0)) => l0 == r0,
+            (Self::Symbol(l0), Self::Symbol(r0)) => l0 == r0,
+            _ => core::mem::discriminant(self) == core::mem::discriminant(other),
+        }
     }
 }
 
@@ -63,6 +84,8 @@ impl MalVal {
             }
             MalVal::Integer(int) => format!("{int}"),
             MalVal::Symbol(symbol) => symbol.to_string(),
+            MalVal::Bool(b) => format!("{b}"),
+            MalVal::Nil => "nil".to_string(),
         }
     }
 }
