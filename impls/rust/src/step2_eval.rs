@@ -64,19 +64,12 @@ fn print(val: &MalVal) -> String {
     val.pr_str(true)
 }
 
-fn rep(input: &str) -> String {
+fn rep(input: &str, env: &HashMap<String, Rc<MalFunc>>) -> String {
     match read(input) {
-        Ok(ast) => {
-            let mut env: HashMap<String, Rc<MalFunc>> = HashMap::new();
-            env.insert("+".to_string(), Rc::new(add));
-            env.insert("-".to_string(), Rc::new(sub));
-            env.insert("*".to_string(), Rc::new(mul));
-            env.insert("/".to_string(), Rc::new(div));
-            match eval(Rc::new(ast), &env) {
-                Ok(v) => print(v.as_ref()),
-                Err(e) => e.to_string(),
-            }
-        }
+        Ok(ast) => match eval(Rc::new(ast), env) {
+            Ok(v) => print(v.as_ref()),
+            Err(e) => e.to_string(),
+        },
         Err(e) => e.to_string(),
     }
 }
@@ -107,6 +100,12 @@ fn div(args: &[Rc<MalVal>]) -> Rc<MalVal> {
 }
 
 fn main() {
+    let mut env: HashMap<String, Rc<MalFunc>> = HashMap::new();
+    env.insert("+".to_string(), Rc::new(add));
+    env.insert("-".to_string(), Rc::new(sub));
+    env.insert("*".to_string(), Rc::new(mul));
+    env.insert("/".to_string(), Rc::new(div));
+
     let mut buffer = String::new();
     loop {
         print!("user> ");
@@ -120,7 +119,7 @@ fn main() {
             Ok(_) => buffer.trim(),
         };
         if !input.is_empty() {
-            println!("{}", rep(input));
+            println!("{}", rep(input, &env));
         }
         buffer.clear();
     }
