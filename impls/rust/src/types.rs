@@ -1,6 +1,9 @@
-use std::{collections::HashMap, rc::Rc};
+use std::{collections::HashMap, fmt::Display, rc::Rc};
+
+pub type MalFunc = dyn Fn(&[Rc<MalVal>]) -> Rc<MalVal>;
 
 pub enum MalVal {
+    Fn(Rc<MalFunc>),
     List(Vec<Rc<MalVal>>),
     Vector(Vec<Rc<MalVal>>),
     HashMap(HashMap<String, Rc<MalVal>>),
@@ -11,9 +14,16 @@ pub enum MalVal {
     Symbol(String),
 }
 
+impl Display for MalVal {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.pr_str(true))
+    }
+}
+
 impl MalVal {
     pub fn pr_str(&self, readably: bool) -> String {
         match self {
+            MalVal::Fn(_) => "#<function>".to_string(),
             MalVal::List(list) => {
                 format!(
                     "({})",
@@ -42,17 +52,17 @@ impl MalVal {
                         .join(" ")
                 )
             }
-            MalVal::Prefix(prefix) => format!("{prefix}"),
+            MalVal::Prefix(prefix) => prefix.to_string(),
             MalVal::Keyword(keyword) => format!(":{keyword}"),
             MalVal::String(string) => {
                 if readably {
                     format!("{string:?}")
                 } else {
-                    format!("{string}")
+                    string.to_string()
                 }
             }
             MalVal::Integer(int) => format!("{int}"),
-            MalVal::Symbol(symbol) => format!("{symbol}"),
+            MalVal::Symbol(symbol) => symbol.to_string(),
         }
     }
 }

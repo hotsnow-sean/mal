@@ -78,9 +78,8 @@ fn read_form(reader: &mut Peekable<Reader>) -> Result<MalVal> {
             iter.next_if_eq(&'-');
             if let Some(n) = iter.next() {
                 if n.is_ascii_digit() {
-                    match s.parse::<i32>() {
-                        Ok(i) => return Ok(MalVal::Integer(i)),
-                        Err(_) => (),
+                    if let Ok(i) = s.parse::<i32>() {
+                        return Ok(MalVal::Integer(i));
                     }
                 }
             }
