@@ -1,17 +1,13 @@
-mod reader;
-mod types;
-
 use std::{collections::HashMap, io::Write, rc::Rc};
 
 use anyhow::{anyhow, Result};
-use reader::read_str;
-use types::{MalFunc, MalVal};
+use rust2::{read_str, MalFn, MalVal};
 
 fn read(input: &str) -> Result<MalVal> {
     read_str(input)
 }
 
-fn eval_ast(ast: Rc<MalVal>, env: &HashMap<String, Rc<MalFunc>>) -> Result<Rc<MalVal>> {
+fn eval_ast(ast: Rc<MalVal>, env: &HashMap<String, Rc<MalFn>>) -> Result<Rc<MalVal>> {
     match ast.as_ref() {
         MalVal::Symbol(symbol) => Ok(Rc::new(MalVal::Fn(
             env.get(symbol)
@@ -43,14 +39,17 @@ fn eval_ast(ast: Rc<MalVal>, env: &HashMap<String, Rc<MalFunc>>) -> Result<Rc<Ma
     }
 }
 
-fn eval(ast: Rc<MalVal>, env: &HashMap<String, Rc<MalFunc>>) -> Result<Rc<MalVal>> {
+fn eval(ast: Rc<MalVal>, env: &HashMap<String, Rc<MalFn>>) -> Result<Rc<MalVal>> {
     match ast.as_ref() {
         MalVal::List(list) if list.is_empty() => Ok(ast),
         MalVal::List(_) => {
             let ast = eval_ast(ast, env)?;
             match ast.as_ref() {
                 MalVal::List(list) => match list[0].as_ref() {
-                    MalVal::Fn(func) => Ok((func.as_ref())(&list[1..])),
+                    MalVal::Fn(func) => match func.as_ref() {
+                        MalFn::RegularFn(func) => Ok((func)(&list[1..])),
+                        _ => unreachable!(),
+                    },
                     _ => unreachable!(),
                 },
                 _ => unreachable!(),
@@ -64,7 +63,7 @@ fn print(val: &MalVal) -> String {
     val.pr_str(true)
 }
 
-fn rep(input: &str, env: &HashMap<String, Rc<MalFunc>>) -> String {
+fn rep(input: &str, env: &HashMap<String, Rc<MalFn>>) -> String {
     match read(input) {
         Ok(ast) => match eval(Rc::new(ast), env) {
             Ok(v) => print(v.as_ref()),
@@ -100,11 +99,11 @@ fn div(args: &[Rc<MalVal>]) -> Rc<MalVal> {
 }
 
 fn main() {
-    let mut env: HashMap<String, Rc<MalFunc>> = HashMap::new();
-    env.insert("+".to_string(), Rc::new(add));
-    env.insert("-".to_string(), Rc::new(sub));
-    env.insert("*".to_string(), Rc::new(mul));
-    env.insert("/".to_string(), Rc::new(div));
+    let mut env: HashMap<String, Rc<MalFn>> = HashMap::new();
+    env.insert("+".to_string(), Rc::new(MalFn::RegularFn(add)));
+    env.insert("-".to_string(), Rc::new(MalFn::RegularFn(sub)));
+    env.insert("*".to_string(), Rc::new(MalFn::RegularFn(mul)));
+    env.insert("/".to_string(), Rc::new(MalFn::RegularFn(div)));
 
     let mut buffer = String::new();
     loop {

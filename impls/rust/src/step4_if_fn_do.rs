@@ -1,15 +1,7 @@
-mod env;
-mod malcore;
-mod reader;
-mod types;
-
 use std::{cell::RefCell, collections::HashMap, io::Write, rc::Rc};
 
 use anyhow::{anyhow, Result};
-use env::Env;
-use malcore::NS;
-use reader::read_str;
-use types::MalVal;
+use rust2::{read_str, Env, MalFn, MalVal, NS};
 
 fn read(input: &str) -> Result<MalVal> {
     read_str(input)
@@ -112,12 +104,9 @@ fn eval(ast: Rc<MalVal>, env: Rc<RefCell<Env>>) -> Result<Rc<MalVal>> {
                             _ => unreachable!(),
                         };
                         let body = list[2].clone();
-                        let func = move |args: &[Rc<MalVal>]| -> Rc<MalVal> {
-                            let mut n_env = Env::new(env.clone());
-                            n_env.bind_expr(binds.clone(), args.to_owned());
-                            eval(body.clone(), Rc::new(RefCell::new(n_env))).unwrap()
-                        };
-                        return Ok(Rc::new(MalVal::Fn(Rc::new(func))));
+                        return Ok(Rc::new(MalVal::Fn(Rc::new(MalFn::custom_func(
+                            body, binds, env,
+                        )))));
                     }
                     _ => (),
                 }
@@ -125,7 +114,14 @@ fn eval(ast: Rc<MalVal>, env: Rc<RefCell<Env>>) -> Result<Rc<MalVal>> {
             let ast = eval_ast(ast, env)?;
             match ast.as_ref() {
                 MalVal::List(list) => match list[0].as_ref() {
-                    MalVal::Fn(func) => Ok((func.as_ref())(&list[1..])),
+                    MalVal::Fn(func) => match func.as_ref() {
+                        MalFn::RegularFn(func) => Ok((func)(&list[1..])),
+                        MalFn::MalFunc(func) => {
+                            let mut n_env = Env::new(func.env.clone());
+                            n_env.bind_expr(func.params.clone(), list[1..].to_vec());
+                            eval(func.ast.clone(), Rc::new(RefCell::new(n_env)))
+                        }
+                    },
                     _ => unreachable!(),
                 },
                 _ => unreachable!(),
@@ -152,7 +148,10 @@ fn rep(input: &str, env: &Rc<RefCell<Env>>) -> String {
 fn main() {
     let mut env = Env::default();
     for (k, v) in NS {
-        env.set(k.to_string(), Rc::new(MalVal::Fn(Rc::new(v))));
+        env.set(
+            k.to_string(),
+            Rc::new(MalVal::Fn(Rc::new(MalFn::RegularFn(v)))),
+        );
     }
     let env = Rc::new(RefCell::new(env));
     rep("(def! not (fn* (a) (if a false true)))", &env);

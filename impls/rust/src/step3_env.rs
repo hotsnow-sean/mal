@@ -1,13 +1,7 @@
-mod env;
-mod reader;
-mod types;
-
 use std::{cell::RefCell, collections::HashMap, io::Write, rc::Rc};
 
 use anyhow::{anyhow, Result};
-use env::Env;
-use reader::read_str;
-use types::MalVal;
+use rust2::{read_str, Env, MalFn, MalVal};
 
 fn read(input: &str) -> Result<MalVal> {
     read_str(input)
@@ -84,7 +78,10 @@ fn eval(ast: Rc<MalVal>, env: Rc<RefCell<Env>>) -> Result<Rc<MalVal>> {
             let ast = eval_ast(ast, env)?;
             match ast.as_ref() {
                 MalVal::List(list) => match list[0].as_ref() {
-                    MalVal::Fn(func) => Ok((func.as_ref())(&list[1..])),
+                    MalVal::Fn(func) => match func.as_ref() {
+                        MalFn::RegularFn(func) => Ok((func)(&list[1..])),
+                        _ => unreachable!(),
+                    },
                     _ => unreachable!(),
                 },
                 _ => unreachable!(),
@@ -135,10 +132,22 @@ fn div(args: &[Rc<MalVal>]) -> Rc<MalVal> {
 
 fn main() {
     let mut env = Env::default();
-    env.set("+".to_string(), Rc::new(MalVal::Fn(Rc::new(add))));
-    env.set("-".to_string(), Rc::new(MalVal::Fn(Rc::new(sub))));
-    env.set("*".to_string(), Rc::new(MalVal::Fn(Rc::new(mul))));
-    env.set("/".to_string(), Rc::new(MalVal::Fn(Rc::new(div))));
+    env.set(
+        "+".to_string(),
+        Rc::new(MalVal::Fn(Rc::new(MalFn::RegularFn(add)))),
+    );
+    env.set(
+        "-".to_string(),
+        Rc::new(MalVal::Fn(Rc::new(MalFn::RegularFn(sub)))),
+    );
+    env.set(
+        "*".to_string(),
+        Rc::new(MalVal::Fn(Rc::new(MalFn::RegularFn(mul)))),
+    );
+    env.set(
+        "/".to_string(),
+        Rc::new(MalVal::Fn(Rc::new(MalFn::RegularFn(div)))),
+    );
     let env = Rc::new(RefCell::new(env));
 
     let mut buffer = String::new();

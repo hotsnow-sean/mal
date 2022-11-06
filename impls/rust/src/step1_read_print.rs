@@ -1,11 +1,7 @@
-mod reader;
-mod types;
-
 use std::io::Write;
 
 use anyhow::Result;
-use reader::read_str;
-use types::MalVal;
+use rust2::{read_str, MalVal};
 
 fn read(input: &str) -> Result<MalVal> {
     read_str(input)

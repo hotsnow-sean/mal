@@ -1,9 +1,26 @@
-use std::{collections::HashMap, fmt::Display, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, fmt::Display, rc::Rc};
 
-pub type MalFunc = dyn Fn(&[Rc<MalVal>]) -> Rc<MalVal>;
+use crate::Env;
+
+pub struct MalFunc {
+    pub ast: Rc<MalVal>,
+    pub params: Vec<String>,
+    pub env: Rc<RefCell<Env>>,
+}
+
+pub enum MalFn {
+    MalFunc(MalFunc),
+    RegularFn(fn(&[Rc<MalVal>]) -> Rc<MalVal>),
+}
+
+impl MalFn {
+    pub fn custom_func(ast: Rc<MalVal>, params: Vec<String>, env: Rc<RefCell<Env>>) -> Self {
+        Self::MalFunc(MalFunc { ast, params, env })
+    }
+}
 
 pub enum MalVal {
-    Fn(Rc<MalFunc>),
+    Fn(Rc<MalFn>),
     List(Vec<Rc<MalVal>>),
     Vector(Vec<Rc<MalVal>>),
     HashMap(HashMap<String, Rc<MalVal>>),
