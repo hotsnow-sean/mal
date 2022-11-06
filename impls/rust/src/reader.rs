@@ -42,7 +42,9 @@ impl<'a> Iterator for Reader<'a> {
                         }
                     }
                 }
-                ';' => while self.iter.next().is_some() {},
+                ';' => {
+                    self.iter.any(|(_, c)| c == '\n');
+                }
                 _ if !"[]{}()'`~^@\";".contains(c) => {
                     while self
                         .iter
@@ -72,7 +74,11 @@ fn read_form(reader: &mut Peekable<Reader>) -> Result<MalVal> {
         Some("(") => read_list(reader),
         Some("[") => read_vector(reader),
         Some("{") => read_hashmap(reader),
-        None => unreachable!(),
+        Some("@") => Ok(MalVal::List(vec![
+            Rc::new(MalVal::Symbol("deref".to_string())),
+            Rc::new(read_form(reader)?),
+        ])),
+        None => bail!("continue"),
         Some(s) => {
             let mut iter = s.chars().peekable();
             iter.next_if_eq(&'-');
@@ -88,6 +94,8 @@ fn read_form(reader: &mut Peekable<Reader>) -> Result<MalVal> {
                 Ok(MalVal::Keyword(s[1..].to_string()))
             } else if first == '"' {
                 Ok(MalVal::String(unescape(&s[1..])?))
+            } else if first == ';' {
+                read_form(reader)
             } else {
                 match s {
                     "'" | "`" | "~" | "~@" | "@" => {
@@ -134,6 +142,9 @@ fn read_list(reader: &mut Peekable<Reader>) -> Result<MalVal> {
             }
             _ => list.push(Rc::new(read_form(reader)?)),
         }
+    }
+    for i in list {
+        println!("{} ", i.as_ref());
     }
     bail!("EOF")
 }

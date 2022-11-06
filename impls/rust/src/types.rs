@@ -1,4 +1,11 @@
-use std::{cell::RefCell, collections::HashMap, fmt::Display, rc::Rc};
+use std::{
+    cell::{Cell, RefCell},
+    collections::HashMap,
+    fmt::Display,
+    rc::Rc,
+};
+
+use anyhow::Result;
 
 use crate::Env;
 
@@ -6,16 +13,38 @@ pub struct MalFunc {
     pub ast: Rc<MalVal>,
     pub params: Vec<String>,
     pub env: Rc<RefCell<Env>>,
+    pub func: fn(Rc<MalVal>, Rc<RefCell<Env>>) -> Result<Rc<MalVal>>,
 }
 
 pub enum MalFn {
     MalFunc(MalFunc),
-    RegularFn(fn(&[Rc<MalVal>]) -> Rc<MalVal>),
+    RegularFn(Rc<dyn Fn(&[Rc<MalVal>]) -> Result<Rc<MalVal>>>),
 }
 
 impl MalFn {
-    pub fn custom_func(ast: Rc<MalVal>, params: Vec<String>, env: Rc<RefCell<Env>>) -> Self {
-        Self::MalFunc(MalFunc { ast, params, env })
+    pub fn custom_func(
+        ast: Rc<MalVal>,
+        params: Vec<String>,
+        env: Rc<RefCell<Env>>,
+        func: fn(Rc<MalVal>, Rc<RefCell<Env>>) -> Result<Rc<MalVal>>,
+    ) -> Self {
+        Self::MalFunc(MalFunc {
+            ast,
+            params,
+            env,
+            func,
+        })
+    }
+
+    pub fn run(&self, args: &[Rc<MalVal>]) -> Result<Rc<MalVal>> {
+        match self {
+            MalFn::RegularFn(func) => (func)(args),
+            MalFn::MalFunc(func) => {
+                let mut n_env = Env::new(func.env.clone());
+                n_env.bind_expr(func.params.clone(), args.to_vec());
+                (func.func)(func.ast.clone(), Rc::new(RefCell::new(n_env)))
+            }
+        }
     }
 }
 
@@ -31,6 +60,7 @@ pub enum MalVal {
     Bool(bool),
     Nil,
     Symbol(String),
+    Atom(Cell<Rc<MalVal>>),
 }
 
 impl Display for MalVal {
@@ -103,6 +133,11 @@ impl MalVal {
             MalVal::Symbol(symbol) => symbol.to_string(),
             MalVal::Bool(b) => format!("{b}"),
             MalVal::Nil => "nil".to_string(),
+            MalVal::Atom(v) => {
+                let m = v.replace(Rc::new(MalVal::Nil));
+                v.set(m.clone());
+                format!("(atom {})", m.as_ref().pr_str(readably))
+            }
         }
     }
 }

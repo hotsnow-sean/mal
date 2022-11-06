@@ -146,13 +146,16 @@ fn print(val: &MalVal) -> String {
     val.pr_str(true)
 }
 
-fn rep(input: &str, env: &Rc<RefCell<Env>>) -> String {
-    match read(input) {
-        Ok(ast) => match eval(Rc::new(ast), env.clone()) {
-            Ok(v) => print(v.as_ref()),
-            Err(e) => e.to_string(),
-        },
-        Err(e) => e.to_string(),
+fn rep(input: &str, env: &Rc<RefCell<Env>>) -> Option<String> {
+    match read(input).and_then(|ast| eval(Rc::new(ast), env.clone())) {
+        Ok(v) => Some(print(v.as_ref())),
+        Err(e) => {
+            if e.to_string() == *"continue" {
+                None
+            } else {
+                Some(e.to_string())
+            }
+        }
     }
 }
 
@@ -165,7 +168,36 @@ fn main() {
         );
     }
     let env = Rc::new(RefCell::new(env));
-    rep("(def! not (fn* (a) (if a false true)))", &env);
+    let env_tmp = env.clone();
+    env.as_ref().borrow_mut().set(
+        "eval".to_string(),
+        Rc::new(MalVal::Fn(Rc::new(MalFn::RegularFn(Rc::new(
+            move |args| eval(args[0].clone(), env_tmp.clone()),
+        ))))),
+    );
+    rep("(def! not (fn* (a) (if a false true)))", &env).unwrap();
+    rep(
+        r#"(def! load-file (fn* (f) (eval (read-string (str "(do " (slurp f) "\nnil)")))))"#,
+        &env,
+    )
+    .unwrap();
+
+    let args = std::env::args().collect::<Vec<_>>();
+    if args.len() > 1 {
+        let mut iter = args.into_iter();
+        iter.next();
+        let filename = iter.next().unwrap();
+        let init = Rc::new(MalVal::List(
+            iter.map(|s| Rc::new(MalVal::String(s))).collect::<Vec<_>>(),
+        ));
+        env.as_ref().borrow_mut().set("*ARGV*".to_string(), init);
+        let input = format!("(load-file \"{filename}\")");
+        rep(&input, &env).unwrap();
+        return;
+    }
+    env.as_ref()
+        .borrow_mut()
+        .set("*ARGV*".to_string(), Rc::new(MalVal::List(Vec::new())));
 
     let mut buffer = String::new();
     loop {
@@ -179,8 +211,8 @@ fn main() {
             Err(_) => break,
             Ok(_) => buffer.trim(),
         };
-        if !input.is_empty() {
-            println!("{}", rep(input, &env));
+        if let Some(s) = rep(input, &env) {
+            println!("{s}")
         }
         buffer.clear();
     }

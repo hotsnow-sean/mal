@@ -79,7 +79,7 @@ fn eval(ast: Rc<MalVal>, env: Rc<RefCell<Env>>) -> Result<Rc<MalVal>> {
             match ast.as_ref() {
                 MalVal::List(list) => match list[0].as_ref() {
                     MalVal::Fn(func) => match func.as_ref() {
-                        MalFn::RegularFn(func) => Ok((func)(&list[1..])),
+                        MalFn::RegularFn(func) => (func)(&list[1..]),
                         _ => unreachable!(),
                     },
                     _ => unreachable!(),
@@ -105,27 +105,27 @@ fn rep(input: &str, env: &Rc<RefCell<Env>>) -> String {
     }
 }
 
-fn add(args: &[Rc<MalVal>]) -> Rc<MalVal> {
+fn add(args: &[Rc<MalVal>]) -> Result<Rc<MalVal>> {
     match (args[0].as_ref(), args[1].as_ref()) {
-        (MalVal::Integer(i), MalVal::Integer(j)) => Rc::new(MalVal::Integer(i + j)),
+        (MalVal::Integer(i), MalVal::Integer(j)) => Ok(Rc::new(MalVal::Integer(i + j))),
         _ => unreachable!(),
     }
 }
-fn sub(args: &[Rc<MalVal>]) -> Rc<MalVal> {
+fn sub(args: &[Rc<MalVal>]) -> Result<Rc<MalVal>> {
     match (args[0].as_ref(), args[1].as_ref()) {
-        (MalVal::Integer(i), MalVal::Integer(j)) => Rc::new(MalVal::Integer(i - j)),
+        (MalVal::Integer(i), MalVal::Integer(j)) => Ok(Rc::new(MalVal::Integer(i - j))),
         _ => unreachable!(),
     }
 }
-fn mul(args: &[Rc<MalVal>]) -> Rc<MalVal> {
+fn mul(args: &[Rc<MalVal>]) -> Result<Rc<MalVal>> {
     match (args[0].as_ref(), args[1].as_ref()) {
-        (MalVal::Integer(i), MalVal::Integer(j)) => Rc::new(MalVal::Integer(i * j)),
+        (MalVal::Integer(i), MalVal::Integer(j)) => Ok(Rc::new(MalVal::Integer(i * j))),
         _ => unreachable!(),
     }
 }
-fn div(args: &[Rc<MalVal>]) -> Rc<MalVal> {
+fn div(args: &[Rc<MalVal>]) -> Result<Rc<MalVal>> {
     match (args[0].as_ref(), args[1].as_ref()) {
-        (MalVal::Integer(i), MalVal::Integer(j)) => Rc::new(MalVal::Integer(i / j)),
+        (MalVal::Integer(i), MalVal::Integer(j)) => Ok(Rc::new(MalVal::Integer(i / j))),
         _ => unreachable!(),
     }
 }
@@ -134,19 +134,19 @@ fn main() {
     let mut env = Env::default();
     env.set(
         "+".to_string(),
-        Rc::new(MalVal::Fn(Rc::new(MalFn::RegularFn(add)))),
+        Rc::new(MalVal::Fn(Rc::new(MalFn::RegularFn(Rc::new(add))))),
     );
     env.set(
         "-".to_string(),
-        Rc::new(MalVal::Fn(Rc::new(MalFn::RegularFn(sub)))),
+        Rc::new(MalVal::Fn(Rc::new(MalFn::RegularFn(Rc::new(sub))))),
     );
     env.set(
         "*".to_string(),
-        Rc::new(MalVal::Fn(Rc::new(MalFn::RegularFn(mul)))),
+        Rc::new(MalVal::Fn(Rc::new(MalFn::RegularFn(Rc::new(mul))))),
     );
     env.set(
         "/".to_string(),
-        Rc::new(MalVal::Fn(Rc::new(MalFn::RegularFn(div)))),
+        Rc::new(MalVal::Fn(Rc::new(MalFn::RegularFn(Rc::new(div))))),
     );
     let env = Rc::new(RefCell::new(env));
 

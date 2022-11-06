@@ -105,7 +105,7 @@ fn eval(ast: Rc<MalVal>, env: Rc<RefCell<Env>>) -> Result<Rc<MalVal>> {
                         };
                         let body = list[2].clone();
                         return Ok(Rc::new(MalVal::Fn(Rc::new(MalFn::custom_func(
-                            body, binds, env,
+                            body, binds, env, eval,
                         )))));
                     }
                     _ => (),
@@ -115,7 +115,7 @@ fn eval(ast: Rc<MalVal>, env: Rc<RefCell<Env>>) -> Result<Rc<MalVal>> {
             match ast.as_ref() {
                 MalVal::List(list) => match list[0].as_ref() {
                     MalVal::Fn(func) => match func.as_ref() {
-                        MalFn::RegularFn(func) => Ok((func)(&list[1..])),
+                        MalFn::RegularFn(func) => (func)(&list[1..]),
                         MalFn::MalFunc(func) => {
                             let mut n_env = Env::new(func.env.clone());
                             n_env.bind_expr(func.params.clone(), list[1..].to_vec());
@@ -150,7 +150,7 @@ fn main() {
     for (k, v) in NS {
         env.set(
             k.to_string(),
-            Rc::new(MalVal::Fn(Rc::new(MalFn::RegularFn(v)))),
+            Rc::new(MalVal::Fn(Rc::new(MalFn::RegularFn(Rc::new(v))))),
         );
     }
     let env = Rc::new(RefCell::new(env));
