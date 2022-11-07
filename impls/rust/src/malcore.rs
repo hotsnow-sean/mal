@@ -1,8 +1,8 @@
-use std::{cell::Cell, collections::HashMap, rc::Rc};
+use std::{cell::Cell, collections::HashMap, io::Write, rc::Rc};
 
 use crate::{read_str, MalError, MalResult, MalVal};
 
-pub const NS: [(&str, fn(&[Rc<MalVal>]) -> MalResult); 51] = [
+pub const NS: [(&str, fn(&[Rc<MalVal>]) -> MalResult); 60] = [
     ("+", add),
     ("-", sub),
     ("*", mul),
@@ -54,6 +54,15 @@ pub const NS: [(&str, fn(&[Rc<MalVal>]) -> MalResult); 51] = [
     ("contains?", is_contains),
     ("keys", keys),
     ("vals", vals),
+    ("readline", readline),
+    ("time-ms", not_implemented),
+    ("meta", not_implemented),
+    ("with-meta", not_implemented),
+    ("fn?", not_implemented),
+    ("string?", not_implemented),
+    ("number?", not_implemented),
+    ("seq", not_implemented),
+    ("conj", not_implemented),
 ];
 
 fn add(args: &[Rc<MalVal>]) -> MalResult {
@@ -487,4 +496,26 @@ fn vals(args: &[Rc<MalVal>]) -> MalResult {
         MalVal::HashMap(h) => Ok(Rc::new(MalVal::List(h.values().cloned().collect()))),
         _ => unreachable!(),
     }
+}
+
+fn readline(args: &[Rc<MalVal>]) -> MalResult {
+    match args[0].as_ref() {
+        MalVal::String(s) => {
+            let mut buffer = String::new();
+            print!("{s}");
+            std::io::stdout().flush().unwrap();
+            match std::io::stdin().read_line(&mut buffer) {
+                Ok(n) if n > 0 => {
+                    buffer.pop();
+                    Ok(Rc::new(MalVal::String(buffer)))
+                }
+                _ => Ok(Rc::new(MalVal::Nil)),
+            }
+        }
+        _ => unreachable!(),
+    }
+}
+
+fn not_implemented(_: &[Rc<MalVal>]) -> MalResult {
+    Err(MalError::Other("not implemented".to_string()))
 }

@@ -48,3 +48,7 @@ path = "src/step8_macros.rs"
 [[bin]]
 name = "step9_try"
 path = "src/step9_try.rs"
+
+[[bin]]
+name = "stepA_mal"
+path = "src/stepA_mal.rs"
