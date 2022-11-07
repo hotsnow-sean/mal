@@ -72,10 +72,13 @@ fn read_form(reader: &mut Peekable<Reader>) -> Result<MalVal, MalError> {
         Some("(") => read_list(reader),
         Some("[") => read_vector(reader),
         Some("{") => read_hashmap(reader),
-        Some("@") => Ok(MalVal::List(vec![
-            Rc::new(MalVal::Symbol("deref".to_string())),
-            Rc::new(read_form(reader)?),
-        ])),
+        Some("@") => Ok(MalVal::List(
+            vec![
+                Rc::new(MalVal::Symbol("deref".to_string())),
+                Rc::new(read_form(reader)?),
+            ],
+            None,
+        )),
         None => Err(MalError::Continue),
         Some(s) => {
             let mut iter = s.chars().peekable();
@@ -106,19 +109,22 @@ fn read_form(reader: &mut Peekable<Reader>) -> Result<MalVal, MalError> {
                             _ => unreachable!(),
                         };
                         let v = read_form(reader)?;
-                        Ok(MalVal::List(vec![
-                            Rc::new(MalVal::Symbol(prefix.to_string())),
-                            Rc::new(v),
-                        ]))
+                        Ok(MalVal::List(
+                            vec![Rc::new(MalVal::Symbol(prefix.to_string())), Rc::new(v)],
+                            None,
+                        ))
                     }
                     "^" => {
                         let first = read_form(reader)?;
                         let second = read_form(reader)?;
-                        Ok(MalVal::List(vec![
-                            Rc::new(MalVal::Symbol("with-meta".to_string())),
-                            Rc::new(second),
-                            Rc::new(first),
-                        ]))
+                        Ok(MalVal::List(
+                            vec![
+                                Rc::new(MalVal::Symbol("with-meta".to_string())),
+                                Rc::new(second),
+                                Rc::new(first),
+                            ],
+                            None,
+                        ))
                     }
                     "true" => Ok(MalVal::Bool(true)),
                     "false" => Ok(MalVal::Bool(false)),
@@ -136,7 +142,7 @@ fn read_list(reader: &mut Peekable<Reader>) -> Result<MalVal, MalError> {
         match s {
             ")" => {
                 reader.next();
-                return Ok(MalVal::List(list));
+                return Ok(MalVal::List(list, None));
             }
             _ => list.push(Rc::new(read_form(reader)?)),
         }
@@ -153,7 +159,7 @@ fn read_vector(reader: &mut Peekable<Reader>) -> Result<MalVal, MalError> {
         match s {
             "]" => {
                 reader.next();
-                return Ok(MalVal::Vector(vector));
+                return Ok(MalVal::Vector(vector, None));
             }
             _ => vector.push(Rc::new(read_form(reader)?)),
         }
@@ -167,7 +173,7 @@ fn read_hashmap(reader: &mut Peekable<Reader>) -> Result<MalVal, MalError> {
         match s {
             "}" => {
                 reader.next();
-                return Ok(MalVal::HashMap(hashmap));
+                return Ok(MalVal::HashMap(hashmap, None));
             }
             _ => {
                 let k = (&read_form(reader)?).into();

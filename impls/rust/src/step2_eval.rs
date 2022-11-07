@@ -12,27 +12,28 @@ fn eval_ast(ast: Rc<MalVal>, env: &HashMap<String, Rc<MalFn>>) -> MalResult {
             env.get(symbol)
                 .ok_or_else(|| MalError::Other(format!("err: symbol `{symbol}` is not exist")))?
                 .clone(),
+            None,
         ))),
-        MalVal::List(list) => {
+        MalVal::List(list, _) => {
             let mut buffer = Vec::new();
             for v in list {
                 buffer.push(eval(v.clone(), env)?);
             }
-            Ok(Rc::new(MalVal::List(buffer)))
+            Ok(Rc::new(MalVal::List(buffer, None)))
         }
-        MalVal::Vector(vector) => {
+        MalVal::Vector(vector, _) => {
             let mut buffer = Vec::new();
             for v in vector {
                 buffer.push(eval(v.clone(), env)?);
             }
-            Ok(Rc::new(MalVal::Vector(buffer)))
+            Ok(Rc::new(MalVal::Vector(buffer, None)))
         }
-        MalVal::HashMap(hashmap) => {
+        MalVal::HashMap(hashmap, _) => {
             let mut buffer = HashMap::new();
             for (k, v) in hashmap {
                 buffer.insert(k.clone(), eval(v.clone(), env)?);
             }
-            Ok(Rc::new(MalVal::HashMap(buffer)))
+            Ok(Rc::new(MalVal::HashMap(buffer, None)))
         }
         _ => Ok(ast),
     }
@@ -40,12 +41,12 @@ fn eval_ast(ast: Rc<MalVal>, env: &HashMap<String, Rc<MalFn>>) -> MalResult {
 
 fn eval(ast: Rc<MalVal>, env: &HashMap<String, Rc<MalFn>>) -> MalResult {
     match ast.as_ref() {
-        MalVal::List(list) if list.is_empty() => Ok(ast),
-        MalVal::List(_) => {
+        MalVal::List(list, _) if list.is_empty() => Ok(ast),
+        MalVal::List(..) => {
             let ast = eval_ast(ast, env)?;
             match ast.as_ref() {
-                MalVal::List(list) => match list[0].as_ref() {
-                    MalVal::Fn(func) => match func.as_ref() {
+                MalVal::List(list, _) => match list[0].as_ref() {
+                    MalVal::Fn(func, _) => match func.as_ref() {
                         MalFn::RegularFn(func) => (func)(&list[1..]),
                         _ => unreachable!(),
                     },

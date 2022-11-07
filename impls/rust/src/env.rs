@@ -23,7 +23,7 @@ impl Env {
             match k.as_str() {
                 "&" => {
                     let k = bind_iter.next().unwrap();
-                    let v = Rc::new(MalVal::List(expr_iter.collect::<Vec<_>>()));
+                    let v = Rc::new(MalVal::List(expr_iter.collect::<Vec<_>>(), None));
                     self.data.insert(k, v);
                     break;
                 }

@@ -46,10 +46,10 @@ pub enum Hashable {
 }
 
 pub enum MalVal {
-    Fn(Rc<MalFn>),
-    List(Vec<Rc<MalVal>>),
-    Vector(Vec<Rc<MalVal>>),
-    HashMap(HashMap<Hashable, Rc<MalVal>>),
+    Fn(Rc<MalFn>, Option<Rc<MalVal>>),
+    List(Vec<Rc<MalVal>>, Option<Rc<MalVal>>),
+    Vector(Vec<Rc<MalVal>>, Option<Rc<MalVal>>),
+    HashMap(HashMap<Hashable, Rc<MalVal>>, Option<Rc<MalVal>>),
     Keyword(String),
     String(String),
     Integer(i64),
@@ -110,11 +110,11 @@ impl Display for MalVal {
 impl PartialEq for MalVal {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (Self::List(l0), Self::List(r0)) => l0 == r0,
-            (Self::List(l0), Self::Vector(r0)) => l0 == r0,
-            (Self::Vector(l0), Self::List(r0)) => l0 == r0,
-            (Self::Vector(l0), Self::Vector(r0)) => l0 == r0,
-            (Self::HashMap(l0), Self::HashMap(r0)) => l0 == r0,
+            (Self::List(l0, _), Self::List(r0, _)) => l0 == r0,
+            (Self::List(l0, _), Self::Vector(r0, _)) => l0 == r0,
+            (Self::Vector(l0, _), Self::List(r0, _)) => l0 == r0,
+            (Self::Vector(l0, _), Self::Vector(r0, _)) => l0 == r0,
+            (Self::HashMap(l0, _), Self::HashMap(r0, _)) => l0 == r0,
             (Self::Keyword(l0), Self::Keyword(r0)) => l0 == r0,
             (Self::String(l0), Self::String(r0)) => l0 == r0,
             (Self::Integer(l0), Self::Integer(r0)) => l0 == r0,
@@ -159,11 +159,21 @@ impl From<&Hashable> for MalVal {
     }
 }
 
+impl From<MalError> for Rc<MalVal> {
+    fn from(e: MalError) -> Self {
+        match e {
+            MalError::Throw(v) => v,
+            MalError::Continue => Rc::new(MalVal::Nil),
+            _ => Rc::new(MalVal::String(e.to_string())),
+        }
+    }
+}
+
 impl MalVal {
     pub fn pr_str(&self, readably: bool) -> String {
         match self {
-            MalVal::Fn(_) => "#<function>".to_string(),
-            MalVal::List(list) => {
+            MalVal::Fn(..) => "#<function>".to_string(),
+            MalVal::List(list, _) => {
                 format!(
                     "({})",
                     list.iter()
@@ -172,7 +182,7 @@ impl MalVal {
                         .join(" ")
                 )
             }
-            MalVal::Vector(vector) => {
+            MalVal::Vector(vector, _) => {
                 format!(
                     "[{}]",
                     vector
@@ -182,7 +192,7 @@ impl MalVal {
                         .join(" ")
                 )
             }
-            MalVal::HashMap(map) => {
+            MalVal::HashMap(map, _) => {
                 format!(
                     "{{{}}}",
                     map.iter()
@@ -219,8 +229,8 @@ impl MalVal {
 impl Debug for MalVal {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::List(arg0) => f.debug_tuple("List").field(arg0).finish(),
-            Self::Vector(arg0) => f.debug_tuple("Vector").field(arg0).finish(),
+            Self::List(arg0, _) => f.debug_tuple("List").field(arg0).finish(),
+            Self::Vector(arg0, _) => f.debug_tuple("Vector").field(arg0).finish(),
             Self::Keyword(arg0) => f.debug_tuple("Keyword").field(arg0).finish(),
             Self::String(arg0) => f.debug_tuple("String").field(arg0).finish(),
             Self::Integer(arg0) => f.debug_tuple("Integer").field(arg0).finish(),

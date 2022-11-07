@@ -8,10 +8,10 @@ fn read(input: &str) -> Result<MalVal, MalError> {
 
 fn is_macro_call(ast: Rc<MalVal>, env: Rc<RefCell<Env>>) -> bool {
     match ast.as_ref() {
-        MalVal::List(list) if !list.is_empty() => {
+        MalVal::List(list, _) if !list.is_empty() => {
             if let MalVal::Symbol(symbol) = list[0].as_ref() {
                 if let Some(v) = env.as_ref().borrow().get(symbol) {
-                    if let MalVal::Fn(func) = v.as_ref() {
+                    if let MalVal::Fn(func, _) = v.as_ref() {
                         return matches!(func.as_ref(), MalFn::MalFunc(func) if func.is_marco);
                     }
                 }
@@ -26,10 +26,10 @@ fn macroexpand(ast: Rc<MalVal>, env: Rc<RefCell<Env>>) -> MalResult {
     let mut ast = ast;
     while is_macro_call(ast.clone(), env.clone()) {
         match ast.as_ref() {
-            MalVal::List(list) if !list.is_empty() => {
+            MalVal::List(list, _) if !list.is_empty() => {
                 if let MalVal::Symbol(symbol) = list[0].as_ref() {
                     if let Some(v) = env.as_ref().borrow().get(symbol) {
-                        if let MalVal::Fn(func) = v.as_ref() {
+                        if let MalVal::Fn(func, _) = v.as_ref() {
                             if let MalFn::MalFunc(func) = func.as_ref() {
                                 ast = func.run(&list[1..])?;
                                 continue;
@@ -49,14 +49,14 @@ fn quasiquote(ast: Rc<MalVal>) -> Rc<MalVal> {
     fn no_unquote(list: &[Rc<MalVal>]) -> Vec<Rc<MalVal>> {
         let mut buffer = Vec::new();
         for elt in list.iter().rev() {
-            if let MalVal::List(list) = elt.as_ref() {
+            if let MalVal::List(list, _) = elt.as_ref() {
                 if list.len() > 1 {
                     if let MalVal::Symbol(s) = list[0].as_ref() {
                         if s == "splice-unquote" {
                             buffer = vec![
                                 Rc::new(MalVal::Symbol("concat".to_string())),
                                 list[1].clone(),
-                                Rc::new(MalVal::List(buffer)),
+                                Rc::new(MalVal::List(buffer, None)),
                             ];
                             continue;
                         }
@@ -66,14 +66,14 @@ fn quasiquote(ast: Rc<MalVal>) -> Rc<MalVal> {
             buffer = vec![
                 Rc::new(MalVal::Symbol("cons".to_string())),
                 quasiquote(elt.clone()),
-                Rc::new(MalVal::List(buffer)),
+                Rc::new(MalVal::List(buffer, None)),
             ];
         }
         buffer
     }
 
     match ast.as_ref() {
-        MalVal::List(list) => {
+        MalVal::List(list, _) => {
             if list.is_empty() {
                 return ast;
             }
@@ -82,23 +82,23 @@ fn quasiquote(ast: Rc<MalVal>) -> Rc<MalVal> {
                     return list[1].clone();
                 }
             }
-            Rc::new(MalVal::List(no_unquote(list)))
+            Rc::new(MalVal::List(no_unquote(list), None))
         }
-        MalVal::Vector(vector) => {
+        MalVal::Vector(vector, _) => {
             let second = if vector.is_empty() {
-                Rc::new(MalVal::List(Vec::new()))
+                Rc::new(MalVal::List(Vec::new(), None))
             } else {
-                Rc::new(MalVal::List(no_unquote(vector)))
+                Rc::new(MalVal::List(no_unquote(vector), None))
             };
-            Rc::new(MalVal::List(vec![
-                Rc::new(MalVal::Symbol("vec".to_string())),
-                second,
-            ]))
+            Rc::new(MalVal::List(
+                vec![Rc::new(MalVal::Symbol("vec".to_string())), second],
+                None,
+            ))
         }
-        MalVal::HashMap(_) | MalVal::Symbol(_) => Rc::new(MalVal::List(vec![
-            Rc::new(MalVal::Symbol("quote".to_string())),
-            ast,
-        ])),
+        MalVal::HashMap(..) | MalVal::Symbol(_) => Rc::new(MalVal::List(
+            vec![Rc::new(MalVal::Symbol("quote".to_string())), ast],
+            None,
+        )),
         _ => ast,
     }
 }
@@ -110,26 +110,26 @@ fn eval_ast(ast: Rc<MalVal>, env: Rc<RefCell<Env>>) -> MalResult {
             .borrow()
             .get(symbol)
             .ok_or_else(|| MalError::Other(format!("'{symbol}' not found."))),
-        MalVal::List(list) => {
+        MalVal::List(list, _) => {
             let mut buffer = Vec::new();
             for v in list {
                 buffer.push(eval(v.clone(), env.clone())?);
             }
-            Ok(Rc::new(MalVal::List(buffer)))
+            Ok(Rc::new(MalVal::List(buffer, None)))
         }
-        MalVal::Vector(vector) => {
+        MalVal::Vector(vector, _) => {
             let mut buffer = Vec::new();
             for v in vector {
                 buffer.push(eval(v.clone(), env.clone())?);
             }
-            Ok(Rc::new(MalVal::Vector(buffer)))
+            Ok(Rc::new(MalVal::Vector(buffer, None)))
         }
-        MalVal::HashMap(hashmap) => {
+        MalVal::HashMap(hashmap, _) => {
             let mut buffer = HashMap::new();
             for (k, v) in hashmap {
                 buffer.insert(k.clone(), eval(v.clone(), env.clone())?);
             }
-            Ok(Rc::new(MalVal::HashMap(buffer)))
+            Ok(Rc::new(MalVal::HashMap(buffer, None)))
         }
         _ => Ok(ast),
     }
@@ -141,8 +141,8 @@ fn eval(ast: Rc<MalVal>, env: Rc<RefCell<Env>>) -> MalResult {
     loop {
         ast = macroexpand(ast, env.clone())?;
         match ast.as_ref() {
-            MalVal::List(list) if list.is_empty() => return Ok(ast),
-            MalVal::List(list) => {
+            MalVal::List(list, _) if list.is_empty() => return Ok(ast),
+            MalVal::List(list, _) => {
                 if let MalVal::Symbol(symbol) = list[0].as_ref() {
                     match symbol.as_str() {
                         "def!" => match list[1].as_ref() {
@@ -156,10 +156,11 @@ fn eval(ast: Rc<MalVal>, env: Rc<RefCell<Env>>) -> MalResult {
                         "defmacro!" => match list[1].as_ref() {
                             MalVal::Symbol(symbol) => {
                                 let v = match eval(list[2].clone(), env.clone())?.as_ref() {
-                                    MalVal::Fn(func) => match func.as_ref() {
-                                        MalFn::MalFunc(func) => Rc::new(MalVal::Fn(Rc::new(
-                                            MalFn::MalFunc(func.construct_marco()),
-                                        ))),
+                                    MalVal::Fn(func, _) => match func.as_ref() {
+                                        MalFn::MalFunc(func) => Rc::new(MalVal::Fn(
+                                            Rc::new(MalFn::MalFunc(func.construct_marco())),
+                                            None,
+                                        )),
                                         _ => unreachable!(),
                                     },
                                     _ => unreachable!(),
@@ -172,7 +173,7 @@ fn eval(ast: Rc<MalVal>, env: Rc<RefCell<Env>>) -> MalResult {
                         "let*" => {
                             let n_env = Rc::new(RefCell::new(Env::new(env)));
                             match list[1].as_ref() {
-                                MalVal::List(binds) | MalVal::Vector(binds) => {
+                                MalVal::List(binds, _) | MalVal::Vector(binds, _) => {
                                     let mut iter = binds.iter();
                                     while let Some(v) = iter.next() {
                                         match v.as_ref() {
@@ -216,7 +217,7 @@ fn eval(ast: Rc<MalVal>, env: Rc<RefCell<Env>>) -> MalResult {
                         }
                         "fn*" => {
                             let binds = match list[1].as_ref() {
-                                MalVal::List(list) | MalVal::Vector(list) => list
+                                MalVal::List(list, _) | MalVal::Vector(list, _) => list
                                     .iter()
                                     .map(|v| match v.as_ref() {
                                         MalVal::Symbol(symbol) => symbol.to_string(),
@@ -226,9 +227,10 @@ fn eval(ast: Rc<MalVal>, env: Rc<RefCell<Env>>) -> MalResult {
                                 _ => unreachable!(),
                             };
                             let body = list[2].clone();
-                            return Ok(Rc::new(MalVal::Fn(Rc::new(MalFn::custom_func(
-                                body, binds, env, eval,
-                            )))));
+                            return Ok(Rc::new(MalVal::Fn(
+                                Rc::new(MalFn::custom_func(body, binds, env, eval)),
+                                None,
+                            )));
                         }
                         "quote" => return Ok(list[1].clone()),
                         "quasiquoteexpand" => return Ok(quasiquote(list[1].clone())),
@@ -242,8 +244,8 @@ fn eval(ast: Rc<MalVal>, env: Rc<RefCell<Env>>) -> MalResult {
                 }
                 let n_ast = eval_ast(ast, env)?;
                 match n_ast.as_ref() {
-                    MalVal::List(list) => match list[0].as_ref() {
-                        MalVal::Fn(func) => match func.as_ref() {
+                    MalVal::List(list, _) => match list[0].as_ref() {
+                        MalVal::Fn(func, _) => match func.as_ref() {
                             MalFn::RegularFn(func) => return (func)(&list[1..]),
                             MalFn::MalFunc(func) => {
                                 let mut n_env = Env::new(func.env.clone());
@@ -279,16 +281,19 @@ fn main() {
     for (k, v) in NS {
         env.set(
             k.to_string(),
-            Rc::new(MalVal::Fn(Rc::new(MalFn::RegularFn(Rc::new(v))))),
+            Rc::new(MalVal::Fn(Rc::new(MalFn::RegularFn(Rc::new(v))), None)),
         );
     }
     let env = Rc::new(RefCell::new(env));
     let env_tmp = env.clone();
     env.as_ref().borrow_mut().set(
         "eval".to_string(),
-        Rc::new(MalVal::Fn(Rc::new(MalFn::RegularFn(Rc::new(
-            move |args| eval(args[0].clone(), env_tmp.clone()),
-        ))))),
+        Rc::new(MalVal::Fn(
+            Rc::new(MalFn::RegularFn(Rc::new(move |args| {
+                eval(args[0].clone(), env_tmp.clone())
+            }))),
+            None,
+        )),
     );
     rep("(def! not (fn* (a) (if a false true)))", &env);
     rep(
@@ -307,15 +312,17 @@ fn main() {
         let filename = iter.next().unwrap();
         let init = Rc::new(MalVal::List(
             iter.map(|s| Rc::new(MalVal::String(s))).collect::<Vec<_>>(),
+            None,
         ));
         env.as_ref().borrow_mut().set("*ARGV*".to_string(), init);
         let input = format!("(load-file \"{filename}\")");
         rep(&input, &env);
         return;
     }
-    env.as_ref()
-        .borrow_mut()
-        .set("*ARGV*".to_string(), Rc::new(MalVal::List(Vec::new())));
+    env.as_ref().borrow_mut().set(
+        "*ARGV*".to_string(),
+        Rc::new(MalVal::List(Vec::new(), None)),
+    );
 
     let mut buffer = String::new();
     loop {

@@ -2,7 +2,7 @@ use std::{cell::Cell, collections::HashMap, io::Write, rc::Rc};
 
 use crate::{read_str, MalError, MalResult, MalVal};
 
-pub const NS: [(&str, fn(&[Rc<MalVal>]) -> MalResult); 60] = [
+pub const NS: [(&str, fn(&[Rc<MalVal>]) -> MalResult); 61] = [
     ("+", add),
     ("-", sub),
     ("*", mul),
@@ -55,14 +55,15 @@ pub const NS: [(&str, fn(&[Rc<MalVal>]) -> MalResult); 60] = [
     ("keys", keys),
     ("vals", vals),
     ("readline", readline),
-    ("time-ms", not_implemented),
-    ("meta", not_implemented),
-    ("with-meta", not_implemented),
-    ("fn?", not_implemented),
-    ("string?", not_implemented),
-    ("number?", not_implemented),
-    ("seq", not_implemented),
-    ("conj", not_implemented),
+    ("time-ms", time_ms),
+    ("meta", meta),
+    ("with-meta", with_meta),
+    ("fn?", is_fn),
+    ("string?", is_string),
+    ("number?", is_number),
+    ("seq", seq),
+    ("conj", conj),
+    ("macro?", is_macro),
 ];
 
 fn add(args: &[Rc<MalVal>]) -> MalResult {
@@ -102,26 +103,28 @@ fn prn(args: &[Rc<MalVal>]) -> MalResult {
 }
 
 fn list(args: &[Rc<MalVal>]) -> MalResult {
-    Ok(Rc::new(MalVal::List(args.to_vec())))
+    Ok(Rc::new(MalVal::List(args.to_vec(), None)))
 }
 
 fn is_list(args: &[Rc<MalVal>]) -> MalResult {
     match args[0].as_ref() {
-        MalVal::List(_) => Ok(Rc::new(MalVal::Bool(true))),
+        MalVal::List(..) => Ok(Rc::new(MalVal::Bool(true))),
         _ => Ok(Rc::new(MalVal::Bool(false))),
     }
 }
 
 fn is_empty(args: &[Rc<MalVal>]) -> MalResult {
     match args[0].as_ref() {
-        MalVal::List(list) | MalVal::Vector(list) => Ok(Rc::new(MalVal::Bool(list.is_empty()))),
+        MalVal::List(list, _) | MalVal::Vector(list, _) => {
+            Ok(Rc::new(MalVal::Bool(list.is_empty())))
+        }
         _ => unreachable!(),
     }
 }
 
 fn count(args: &[Rc<MalVal>]) -> MalResult {
     match args[0].as_ref() {
-        MalVal::List(list) | MalVal::Vector(list) => {
+        MalVal::List(list, _) | MalVal::Vector(list, _) => {
             Ok(Rc::new(MalVal::Integer(list.len().try_into().unwrap())))
         }
         _ => Ok(Rc::new(MalVal::Integer(0))),
@@ -236,7 +239,7 @@ fn reset(args: &[Rc<MalVal>]) -> MalResult {
 
 fn swap(args: &[Rc<MalVal>]) -> MalResult {
     match (args[0].as_ref(), args[1].as_ref()) {
-        (MalVal::Atom(v), MalVal::Fn(func)) => {
+        (MalVal::Atom(v), MalVal::Fn(func, _)) => {
             let mut params = vec![v.replace(Rc::new(MalVal::Nil))];
             params.append(&mut args[2..].to_vec());
             let result = func.run(&params)?;
@@ -249,10 +252,10 @@ fn swap(args: &[Rc<MalVal>]) -> MalResult {
 
 fn cons(args: &[Rc<MalVal>]) -> MalResult {
     match args[1].as_ref() {
-        MalVal::List(list) | MalVal::Vector(list) => {
+        MalVal::List(list, _) | MalVal::Vector(list, _) => {
             let mut buffer = vec![args[0].clone()];
             buffer.append(&mut list.to_vec());
-            Ok(Rc::new(MalVal::List(buffer)))
+            Ok(Rc::new(MalVal::List(buffer, None)))
         }
         _ => unreachable!(),
     }
@@ -262,37 +265,37 @@ fn concat(args: &[Rc<MalVal>]) -> MalResult {
     let mut buffer = Vec::new();
     for v in args {
         match v.as_ref() {
-            MalVal::List(list) | MalVal::Vector(list) => {
+            MalVal::List(list, _) | MalVal::Vector(list, _) => {
                 buffer.append(&mut list.to_vec());
             }
             _ => unreachable!(),
         }
     }
-    Ok(Rc::new(MalVal::List(buffer)))
+    Ok(Rc::new(MalVal::List(buffer, None)))
 }
 
 fn vec(args: &[Rc<MalVal>]) -> MalResult {
     match args[0].as_ref() {
-        MalVal::List(list) => Ok(Rc::new(MalVal::Vector(list.to_vec()))),
-        MalVal::Vector(_) => Ok(args[0].clone()),
+        MalVal::List(list, _) => Ok(Rc::new(MalVal::Vector(list.to_vec(), None))),
+        MalVal::Vector(..) => Ok(args[0].clone()),
         _ => unreachable!(),
     }
 }
 
 fn nth(args: &[Rc<MalVal>]) -> MalResult {
     match (args[0].as_ref(), args[1].as_ref()) {
-        (MalVal::List(list), MalVal::Integer(i)) | (MalVal::Vector(list), MalVal::Integer(i)) => {
-            list.get(*i as usize).cloned().ok_or_else(|| {
-                MalError::Throw(Rc::new(MalVal::String("out of bounds".to_string())))
-            })
-        }
+        (MalVal::List(list, _), MalVal::Integer(i))
+        | (MalVal::Vector(list, _), MalVal::Integer(i)) => list
+            .get(*i as usize)
+            .cloned()
+            .ok_or_else(|| MalError::Throw(Rc::new(MalVal::String("out of bounds".to_string())))),
         _ => unreachable!(),
     }
 }
 
 fn first(args: &[Rc<MalVal>]) -> MalResult {
     match args[0].as_ref() {
-        MalVal::List(list) | MalVal::Vector(list) => Ok(list
+        MalVal::List(list, _) | MalVal::Vector(list, _) => Ok(list
             .first()
             .map_or_else(|| Rc::new(MalVal::Nil), |v| v.clone())),
         MalVal::Nil => Ok(Rc::new(MalVal::Nil)),
@@ -302,12 +305,12 @@ fn first(args: &[Rc<MalVal>]) -> MalResult {
 
 fn rest(args: &[Rc<MalVal>]) -> MalResult {
     match args[0].as_ref() {
-        MalVal::List(list) | MalVal::Vector(list) => {
+        MalVal::List(list, _) | MalVal::Vector(list, _) => {
             let mut iter = list.iter();
             iter.next();
-            Ok(Rc::new(MalVal::List(iter.cloned().collect())))
+            Ok(Rc::new(MalVal::List(iter.cloned().collect(), None)))
         }
-        MalVal::Nil => Ok(Rc::new(MalVal::List(Vec::new()))),
+        MalVal::Nil => Ok(Rc::new(MalVal::List(Vec::new(), None))),
         _ => unreachable!(),
     }
 }
@@ -319,7 +322,7 @@ fn throw(args: &[Rc<MalVal>]) -> MalResult {
 fn apply(args: &[Rc<MalVal>]) -> MalResult {
     match (args.first(), args.last()) {
         (Some(f), Some(l)) => match (f.as_ref(), l.as_ref()) {
-            (MalVal::Fn(f), MalVal::List(l)) | (MalVal::Fn(f), MalVal::Vector(l)) => {
+            (MalVal::Fn(f, _), MalVal::List(l, _)) | (MalVal::Fn(f, _), MalVal::Vector(l, _)) => {
                 let mut buffer = args[1..args.len() - 1].to_vec();
                 buffer.append(&mut l.to_vec());
                 f.run(&buffer)
@@ -332,12 +335,12 @@ fn apply(args: &[Rc<MalVal>]) -> MalResult {
 
 fn map(args: &[Rc<MalVal>]) -> MalResult {
     match (args[0].as_ref(), args[1].as_ref()) {
-        (MalVal::Fn(f), MalVal::List(l)) | (MalVal::Fn(f), MalVal::Vector(l)) => {
+        (MalVal::Fn(f, _), MalVal::List(l, _)) | (MalVal::Fn(f, _), MalVal::Vector(l, _)) => {
             let mut buffer = Vec::with_capacity(l.len());
             for v in l {
                 buffer.push(f.run(&[v.clone()])?);
             }
-            Ok(Rc::new(MalVal::List(buffer)))
+            Ok(Rc::new(MalVal::List(buffer, None)))
         }
         _ => unreachable!(),
     }
@@ -394,19 +397,19 @@ fn is_keyword(args: &[Rc<MalVal>]) -> MalResult {
 }
 
 fn vector(args: &[Rc<MalVal>]) -> MalResult {
-    Ok(Rc::new(MalVal::Vector(args.to_vec())))
+    Ok(Rc::new(MalVal::Vector(args.to_vec(), None)))
 }
 
 fn is_vector(args: &[Rc<MalVal>]) -> MalResult {
     match args[0].as_ref() {
-        MalVal::Vector(_) => Ok(Rc::new(MalVal::Bool(true))),
+        MalVal::Vector(..) => Ok(Rc::new(MalVal::Bool(true))),
         _ => Ok(Rc::new(MalVal::Bool(false))),
     }
 }
 
 fn is_sequential(args: &[Rc<MalVal>]) -> MalResult {
     match args[0].as_ref() {
-        MalVal::Vector(_) | MalVal::List(_) => Ok(Rc::new(MalVal::Bool(true))),
+        MalVal::Vector(..) | MalVal::List(..) => Ok(Rc::new(MalVal::Bool(true))),
         _ => Ok(Rc::new(MalVal::Bool(false))),
     }
 }
@@ -418,12 +421,12 @@ fn hash_map(args: &[Rc<MalVal>]) -> MalResult {
         let k = k.as_ref().into();
         hashmap.insert(k, v.clone());
     }
-    Ok(Rc::new(MalVal::HashMap(hashmap)))
+    Ok(Rc::new(MalVal::HashMap(hashmap, None)))
 }
 
 fn is_map(args: &[Rc<MalVal>]) -> MalResult {
     match args[0].as_ref() {
-        MalVal::HashMap(_) => Ok(Rc::new(MalVal::Bool(true))),
+        MalVal::HashMap(..) => Ok(Rc::new(MalVal::Bool(true))),
         _ => Ok(Rc::new(MalVal::Bool(false))),
     }
 }
@@ -432,7 +435,7 @@ fn assoc(args: &[Rc<MalVal>]) -> MalResult {
     let mut iter = args.iter();
     let mut hashmap = match iter.next() {
         Some(h) => match h.as_ref() {
-            MalVal::HashMap(h) => h.clone(),
+            MalVal::HashMap(h, _) => h.clone(),
             _ => unreachable!(),
         },
         _ => unreachable!(),
@@ -441,14 +444,14 @@ fn assoc(args: &[Rc<MalVal>]) -> MalResult {
         let k = k.as_ref().into();
         hashmap.insert(k, v.clone());
     }
-    Ok(Rc::new(MalVal::HashMap(hashmap)))
+    Ok(Rc::new(MalVal::HashMap(hashmap, None)))
 }
 
 fn dissoc(args: &[Rc<MalVal>]) -> MalResult {
     let mut iter = args.iter();
     let mut hashmap = match iter.next() {
         Some(h) => match h.as_ref() {
-            MalVal::HashMap(h) => h.clone(),
+            MalVal::HashMap(h, _) => h.clone(),
             _ => unreachable!(),
         },
         _ => unreachable!(),
@@ -457,12 +460,12 @@ fn dissoc(args: &[Rc<MalVal>]) -> MalResult {
         let k = k.as_ref().into();
         hashmap.remove(&k);
     }
-    Ok(Rc::new(MalVal::HashMap(hashmap)))
+    Ok(Rc::new(MalVal::HashMap(hashmap, None)))
 }
 
 fn get(args: &[Rc<MalVal>]) -> MalResult {
     match args[0].as_ref() {
-        MalVal::HashMap(h) => {
+        MalVal::HashMap(h, _) => {
             let k = args[1].as_ref().into();
             Ok(h.get(&k)
                 .map_or_else(|| Rc::new(MalVal::Nil), |v| v.clone()))
@@ -474,7 +477,7 @@ fn get(args: &[Rc<MalVal>]) -> MalResult {
 
 fn is_contains(args: &[Rc<MalVal>]) -> MalResult {
     match args[0].as_ref() {
-        MalVal::HashMap(h) => {
+        MalVal::HashMap(h, _) => {
             let k = args[1].as_ref().into();
             Ok(Rc::new(MalVal::Bool(h.contains_key(&k))))
         }
@@ -484,8 +487,9 @@ fn is_contains(args: &[Rc<MalVal>]) -> MalResult {
 
 fn keys(args: &[Rc<MalVal>]) -> MalResult {
     match args[0].as_ref() {
-        MalVal::HashMap(h) => Ok(Rc::new(MalVal::List(
+        MalVal::HashMap(h, _) => Ok(Rc::new(MalVal::List(
             h.keys().map(|k| Rc::new(k.into())).collect(),
+            None,
         ))),
         _ => unreachable!(),
     }
@@ -493,7 +497,7 @@ fn keys(args: &[Rc<MalVal>]) -> MalResult {
 
 fn vals(args: &[Rc<MalVal>]) -> MalResult {
     match args[0].as_ref() {
-        MalVal::HashMap(h) => Ok(Rc::new(MalVal::List(h.values().cloned().collect()))),
+        MalVal::HashMap(h, _) => Ok(Rc::new(MalVal::List(h.values().cloned().collect(), None))),
         _ => unreachable!(),
     }
 }
@@ -516,6 +520,126 @@ fn readline(args: &[Rc<MalVal>]) -> MalResult {
     }
 }
 
-fn not_implemented(_: &[Rc<MalVal>]) -> MalResult {
-    Err(MalError::Other("not implemented".to_string()))
+fn meta(args: &[Rc<MalVal>]) -> MalResult {
+    match args[0].as_ref() {
+        MalVal::List(_, data)
+        | MalVal::Vector(_, data)
+        | MalVal::HashMap(_, data)
+        | MalVal::Fn(_, data) => data
+            .as_ref()
+            .cloned()
+            .map_or_else(|| Ok(Rc::new(MalVal::Nil)), Ok),
+        _ => unreachable!(),
+    }
+}
+
+fn with_meta(args: &[Rc<MalVal>]) -> MalResult {
+    match args[0].as_ref() {
+        MalVal::List(list, _) => Ok(Rc::new(MalVal::List(list.to_vec(), Some(args[1].clone())))),
+        MalVal::Vector(vector, _) => Ok(Rc::new(MalVal::Vector(
+            vector.to_vec(),
+            Some(args[1].clone()),
+        ))),
+        MalVal::HashMap(hashmap, _) => Ok(Rc::new(MalVal::HashMap(
+            hashmap.clone(),
+            Some(args[1].clone()),
+        ))),
+        MalVal::Fn(func, _) => Ok(Rc::new(MalVal::Fn(func.clone(), Some(args[1].clone())))),
+        _ => unreachable!(),
+    }
+}
+
+fn time_ms(_: &[Rc<MalVal>]) -> MalResult {
+    Ok(Rc::new(MalVal::Integer(
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis()
+            .try_into()
+            .unwrap(),
+    )))
+}
+
+fn conj(args: &[Rc<MalVal>]) -> MalResult {
+    match args[0].as_ref() {
+        MalVal::List(list, data) => {
+            let mut buffer = args[1..].iter().rev().cloned().collect::<Vec<_>>();
+            buffer.append(&mut list.to_vec());
+            Ok(Rc::new(MalVal::List(buffer, data.clone())))
+        }
+        MalVal::Vector(vector, data) => {
+            let mut buffer = vector.to_vec();
+            buffer.append(&mut args[1..].to_vec());
+            Ok(Rc::new(MalVal::Vector(buffer, data.clone())))
+        }
+        _ => unreachable!(),
+    }
+}
+
+fn is_string(args: &[Rc<MalVal>]) -> MalResult {
+    match args[0].as_ref() {
+        MalVal::String(..) => Ok(Rc::new(MalVal::Bool(true))),
+        _ => Ok(Rc::new(MalVal::Bool(false))),
+    }
+}
+
+fn is_number(args: &[Rc<MalVal>]) -> MalResult {
+    match args[0].as_ref() {
+        MalVal::Integer(..) => Ok(Rc::new(MalVal::Bool(true))),
+        _ => Ok(Rc::new(MalVal::Bool(false))),
+    }
+}
+
+fn is_fn(args: &[Rc<MalVal>]) -> MalResult {
+    match args[0].as_ref() {
+        MalVal::Fn(f, _) => match f.as_ref() {
+            crate::MalFn::MalFunc(f) if f.is_marco => Ok(Rc::new(MalVal::Bool(false))),
+            _ => Ok(Rc::new(MalVal::Bool(true))),
+        },
+        _ => Ok(Rc::new(MalVal::Bool(false))),
+    }
+}
+
+fn is_macro(args: &[Rc<MalVal>]) -> MalResult {
+    match args[0].as_ref() {
+        MalVal::Fn(f, _) => match f.as_ref() {
+            crate::MalFn::MalFunc(f) if f.is_marco => Ok(Rc::new(MalVal::Bool(true))),
+            _ => Ok(Rc::new(MalVal::Bool(false))),
+        },
+        _ => Ok(Rc::new(MalVal::Bool(false))),
+    }
+}
+
+fn seq(args: &[Rc<MalVal>]) -> MalResult {
+    match args[0].as_ref() {
+        MalVal::List(list, _) => {
+            if list.is_empty() {
+                Ok(Rc::new(MalVal::Nil))
+            } else {
+                Ok(args[0].clone())
+            }
+        }
+        MalVal::Vector(vector, data) => {
+            if vector.is_empty() {
+                Ok(Rc::new(MalVal::Nil))
+            } else {
+                Ok(Rc::new(MalVal::List(vector.to_vec(), data.clone())))
+            }
+        }
+        MalVal::String(string) => {
+            if string.is_empty() {
+                Ok(Rc::new(MalVal::Nil))
+            } else {
+                Ok(Rc::new(MalVal::List(
+                    string
+                        .chars()
+                        .map(|c| Rc::new(MalVal::String(c.to_string())))
+                        .collect(),
+                    None,
+                )))
+            }
+        }
+        MalVal::Nil => Ok(args[0].clone()),
+        _ => unreachable!(),
+    }
 }

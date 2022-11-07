@@ -13,26 +13,26 @@ fn eval_ast(ast: Rc<MalVal>, env: Rc<RefCell<Env>>) -> MalResult {
             .borrow()
             .get(symbol)
             .ok_or_else(|| MalError::Other(format!("'{symbol}' not found."))),
-        MalVal::List(list) => {
+        MalVal::List(list, _) => {
             let mut buffer = Vec::new();
             for v in list {
                 buffer.push(eval(v.clone(), env.clone())?);
             }
-            Ok(Rc::new(MalVal::List(buffer)))
+            Ok(Rc::new(MalVal::List(buffer, None)))
         }
-        MalVal::Vector(vector) => {
+        MalVal::Vector(vector, _) => {
             let mut buffer = Vec::new();
             for v in vector {
                 buffer.push(eval(v.clone(), env.clone())?);
             }
-            Ok(Rc::new(MalVal::Vector(buffer)))
+            Ok(Rc::new(MalVal::Vector(buffer, None)))
         }
-        MalVal::HashMap(hashmap) => {
+        MalVal::HashMap(hashmap, _) => {
             let mut buffer = HashMap::new();
             for (k, v) in hashmap {
                 buffer.insert(k.clone(), eval(v.clone(), env.clone())?);
             }
-            Ok(Rc::new(MalVal::HashMap(buffer)))
+            Ok(Rc::new(MalVal::HashMap(buffer, None)))
         }
         _ => Ok(ast),
     }
@@ -43,8 +43,8 @@ fn eval(ast: Rc<MalVal>, env: Rc<RefCell<Env>>) -> MalResult {
     let mut env = env;
     loop {
         match ast.as_ref() {
-            MalVal::List(list) if list.is_empty() => return Ok(ast),
-            MalVal::List(list) => {
+            MalVal::List(list, _) if list.is_empty() => return Ok(ast),
+            MalVal::List(list, _) => {
                 if let MalVal::Symbol(symbol) = list[0].as_ref() {
                     match symbol.as_str() {
                         "def!" => match list[1].as_ref() {
@@ -58,7 +58,7 @@ fn eval(ast: Rc<MalVal>, env: Rc<RefCell<Env>>) -> MalResult {
                         "let*" => {
                             let n_env = Rc::new(RefCell::new(Env::new(env)));
                             match list[1].as_ref() {
-                                MalVal::List(binds) | MalVal::Vector(binds) => {
+                                MalVal::List(binds, _) | MalVal::Vector(binds, _) => {
                                     let mut iter = binds.iter();
                                     while let Some(v) = iter.next() {
                                         match v.as_ref() {
@@ -102,7 +102,7 @@ fn eval(ast: Rc<MalVal>, env: Rc<RefCell<Env>>) -> MalResult {
                         }
                         "fn*" => {
                             let binds = match list[1].as_ref() {
-                                MalVal::List(list) | MalVal::Vector(list) => list
+                                MalVal::List(list, _) | MalVal::Vector(list, _) => list
                                     .iter()
                                     .map(|v| match v.as_ref() {
                                         MalVal::Symbol(symbol) => symbol.to_string(),
@@ -112,17 +112,18 @@ fn eval(ast: Rc<MalVal>, env: Rc<RefCell<Env>>) -> MalResult {
                                 _ => unreachable!(),
                             };
                             let body = list[2].clone();
-                            return Ok(Rc::new(MalVal::Fn(Rc::new(MalFn::custom_func(
-                                body, binds, env, eval,
-                            )))));
+                            return Ok(Rc::new(MalVal::Fn(
+                                Rc::new(MalFn::custom_func(body, binds, env, eval)),
+                                None,
+                            )));
                         }
                         _ => (),
                     }
                 }
                 let n_ast = eval_ast(ast, env)?;
                 match n_ast.as_ref() {
-                    MalVal::List(list) => match list[0].as_ref() {
-                        MalVal::Fn(func) => match func.as_ref() {
+                    MalVal::List(list, _) => match list[0].as_ref() {
+                        MalVal::Fn(func, _) => match func.as_ref() {
                             MalFn::RegularFn(func) => return (func)(&list[1..]),
                             MalFn::MalFunc(func) => {
                                 let mut n_env = Env::new(func.env.clone());
@@ -158,16 +159,19 @@ fn main() {
     for (k, v) in NS {
         env.set(
             k.to_string(),
-            Rc::new(MalVal::Fn(Rc::new(MalFn::RegularFn(Rc::new(v))))),
+            Rc::new(MalVal::Fn(Rc::new(MalFn::RegularFn(Rc::new(v))), None)),
         );
     }
     let env = Rc::new(RefCell::new(env));
     let env_tmp = env.clone();
     env.as_ref().borrow_mut().set(
         "eval".to_string(),
-        Rc::new(MalVal::Fn(Rc::new(MalFn::RegularFn(Rc::new(
-            move |args| eval(args[0].clone(), env_tmp.clone()),
-        ))))),
+        Rc::new(MalVal::Fn(
+            Rc::new(MalFn::RegularFn(Rc::new(move |args| {
+                eval(args[0].clone(), env_tmp.clone())
+            }))),
+            None,
+        )),
     );
     rep("(def! not (fn* (a) (if a false true)))", &env);
     rep(
@@ -182,15 +186,17 @@ fn main() {
         let filename = iter.next().unwrap();
         let init = Rc::new(MalVal::List(
             iter.map(|s| Rc::new(MalVal::String(s))).collect::<Vec<_>>(),
+            None,
         ));
         env.as_ref().borrow_mut().set("*ARGV*".to_string(), init);
         let input = format!("(load-file \"{filename}\")");
         rep(&input, &env);
         return;
     }
-    env.as_ref()
-        .borrow_mut()
-        .set("*ARGV*".to_string(), Rc::new(MalVal::List(Vec::new())));
+    env.as_ref().borrow_mut().set(
+        "*ARGV*".to_string(),
+        Rc::new(MalVal::List(Vec::new(), None)),
+    );
 
     let mut buffer = String::new();
     loop {
