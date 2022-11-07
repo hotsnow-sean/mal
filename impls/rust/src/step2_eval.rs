@@ -1,17 +1,16 @@
 use std::{collections::HashMap, io::Write, rc::Rc};
 
-use anyhow::{anyhow, Result};
-use rust2::{read_str, MalFn, MalVal};
+use rust2::{read_str, MalError, MalFn, MalResult, MalVal};
 
-fn read(input: &str) -> Result<MalVal> {
+fn read(input: &str) -> Result<MalVal, MalError> {
     read_str(input)
 }
 
-fn eval_ast(ast: Rc<MalVal>, env: &HashMap<String, Rc<MalFn>>) -> Result<Rc<MalVal>> {
+fn eval_ast(ast: Rc<MalVal>, env: &HashMap<String, Rc<MalFn>>) -> MalResult {
     match ast.as_ref() {
         MalVal::Symbol(symbol) => Ok(Rc::new(MalVal::Fn(
             env.get(symbol)
-                .ok_or_else(|| anyhow!("err: symbol `{symbol}` is not exist"))?
+                .ok_or_else(|| MalError::Other(format!("err: symbol `{symbol}` is not exist")))?
                 .clone(),
         ))),
         MalVal::List(list) => {
@@ -39,7 +38,7 @@ fn eval_ast(ast: Rc<MalVal>, env: &HashMap<String, Rc<MalFn>>) -> Result<Rc<MalV
     }
 }
 
-fn eval(ast: Rc<MalVal>, env: &HashMap<String, Rc<MalFn>>) -> Result<Rc<MalVal>> {
+fn eval(ast: Rc<MalVal>, env: &HashMap<String, Rc<MalFn>>) -> MalResult {
     match ast.as_ref() {
         MalVal::List(list) if list.is_empty() => Ok(ast),
         MalVal::List(_) => {
@@ -73,25 +72,25 @@ fn rep(input: &str, env: &HashMap<String, Rc<MalFn>>) -> String {
     }
 }
 
-fn add(args: &[Rc<MalVal>]) -> Result<Rc<MalVal>> {
+fn add(args: &[Rc<MalVal>]) -> MalResult {
     match (args[0].as_ref(), args[1].as_ref()) {
         (MalVal::Integer(i), MalVal::Integer(j)) => Ok(Rc::new(MalVal::Integer(i + j))),
         _ => unreachable!(),
     }
 }
-fn sub(args: &[Rc<MalVal>]) -> Result<Rc<MalVal>> {
+fn sub(args: &[Rc<MalVal>]) -> MalResult {
     match (args[0].as_ref(), args[1].as_ref()) {
         (MalVal::Integer(i), MalVal::Integer(j)) => Ok(Rc::new(MalVal::Integer(i - j))),
         _ => unreachable!(),
     }
 }
-fn mul(args: &[Rc<MalVal>]) -> Result<Rc<MalVal>> {
+fn mul(args: &[Rc<MalVal>]) -> MalResult {
     match (args[0].as_ref(), args[1].as_ref()) {
         (MalVal::Integer(i), MalVal::Integer(j)) => Ok(Rc::new(MalVal::Integer(i * j))),
         _ => unreachable!(),
     }
 }
-fn div(args: &[Rc<MalVal>]) -> Result<Rc<MalVal>> {
+fn div(args: &[Rc<MalVal>]) -> MalResult {
     match (args[0].as_ref(), args[1].as_ref()) {
         (MalVal::Integer(i), MalVal::Integer(j)) => Ok(Rc::new(MalVal::Integer(i / j))),
         _ => unreachable!(),

@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0.66"
+thiserror = "1.0.37"
 
 
 [[bin]]
@@ -44,3 +44,7 @@ path = "src/step7_quote.rs"
 [[bin]]
 name = "step8_macros"
 path = "src/step8_macros.rs"
+
+[[bin]]
+name = "step9_try"
+path = "src/step9_try.rs"

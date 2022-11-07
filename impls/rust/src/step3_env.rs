@@ -1,18 +1,17 @@
 use std::{cell::RefCell, collections::HashMap, io::Write, rc::Rc};
 
-use anyhow::{anyhow, Result};
-use rust2::{read_str, Env, MalFn, MalVal};
+use rust2::{read_str, Env, MalError, MalFn, MalResult, MalVal};
 
-fn read(input: &str) -> Result<MalVal> {
+fn read(input: &str) -> Result<MalVal, MalError> {
     read_str(input)
 }
 
-fn eval_ast(ast: Rc<MalVal>, env: Rc<RefCell<Env>>) -> Result<Rc<MalVal>> {
+fn eval_ast(ast: Rc<MalVal>, env: Rc<RefCell<Env>>) -> MalResult {
     match ast.as_ref() {
         MalVal::Symbol(symbol) => env
             .borrow()
             .get(symbol)
-            .ok_or_else(|| anyhow!("'{symbol}' not found.")),
+            .ok_or_else(|| MalError::Other(format!("'{symbol}' not found."))),
         MalVal::List(list) => {
             let mut buffer = Vec::new();
             for v in list {
@@ -38,7 +37,7 @@ fn eval_ast(ast: Rc<MalVal>, env: Rc<RefCell<Env>>) -> Result<Rc<MalVal>> {
     }
 }
 
-fn eval(ast: Rc<MalVal>, env: Rc<RefCell<Env>>) -> Result<Rc<MalVal>> {
+fn eval(ast: Rc<MalVal>, env: Rc<RefCell<Env>>) -> MalResult {
     match ast.as_ref() {
         MalVal::List(list) if list.is_empty() => Ok(ast),
         MalVal::List(list) => {
@@ -105,25 +104,25 @@ fn rep(input: &str, env: &Rc<RefCell<Env>>) -> String {
     }
 }
 
-fn add(args: &[Rc<MalVal>]) -> Result<Rc<MalVal>> {
+fn add(args: &[Rc<MalVal>]) -> MalResult {
     match (args[0].as_ref(), args[1].as_ref()) {
         (MalVal::Integer(i), MalVal::Integer(j)) => Ok(Rc::new(MalVal::Integer(i + j))),
         _ => unreachable!(),
     }
 }
-fn sub(args: &[Rc<MalVal>]) -> Result<Rc<MalVal>> {
+fn sub(args: &[Rc<MalVal>]) -> MalResult {
     match (args[0].as_ref(), args[1].as_ref()) {
         (MalVal::Integer(i), MalVal::Integer(j)) => Ok(Rc::new(MalVal::Integer(i - j))),
         _ => unreachable!(),
     }
 }
-fn mul(args: &[Rc<MalVal>]) -> Result<Rc<MalVal>> {
+fn mul(args: &[Rc<MalVal>]) -> MalResult {
     match (args[0].as_ref(), args[1].as_ref()) {
         (MalVal::Integer(i), MalVal::Integer(j)) => Ok(Rc::new(MalVal::Integer(i * j))),
         _ => unreachable!(),
     }
 }
-fn div(args: &[Rc<MalVal>]) -> Result<Rc<MalVal>> {
+fn div(args: &[Rc<MalVal>]) -> MalResult {
     match (args[0].as_ref(), args[1].as_ref()) {
         (MalVal::Integer(i), MalVal::Integer(j)) => Ok(Rc::new(MalVal::Integer(i / j))),
         _ => unreachable!(),

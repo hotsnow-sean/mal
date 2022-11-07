@@ -1,4 +1,4 @@
-STEPS = step0_repl step1_read_print step2_eval step3_env step4_if_fn_do step5_tco step6_file step7_quote step8_macros
+STEPS = step0_repl step1_read_print step2_eval step3_env step4_if_fn_do step5_tco step6_file step7_quote step8_macros step9_try
 
 all: $(STEPS)
 
@@ -14,6 +14,7 @@ step5_tco: src/types.rs src/reader.rs src/env.rs src/malcore.rs
 step6_file: src/types.rs src/reader.rs src/env.rs src/malcore.rs
 step7_quote: src/types.rs src/reader.rs src/env.rs src/malcore.rs
 step8_macros: src/types.rs src/reader.rs src/env.rs src/malcore.rs
+step9_try: src/types.rs src/reader.rs src/env.rs src/malcore.rs
 
 .PHONY: clean
 

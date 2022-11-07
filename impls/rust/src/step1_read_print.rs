@@ -1,9 +1,8 @@
 use std::io::Write;
 
-use anyhow::Result;
-use rust2::{read_str, MalVal};
+use rust2::{read_str, MalError, MalVal};
 
-fn read(input: &str) -> Result<MalVal> {
+fn read(input: &str) -> Result<MalVal, MalError> {
     read_str(input)
 }
 

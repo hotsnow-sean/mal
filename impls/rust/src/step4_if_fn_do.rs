@@ -1,18 +1,17 @@
 use std::{cell::RefCell, collections::HashMap, io::Write, rc::Rc};
 
-use anyhow::{anyhow, Result};
-use rust2::{read_str, Env, MalFn, MalVal, NS};
+use rust2::{read_str, Env, MalError, MalFn, MalResult, MalVal, NS};
 
-fn read(input: &str) -> Result<MalVal> {
+fn read(input: &str) -> Result<MalVal, MalError> {
     read_str(input)
 }
 
-fn eval_ast(ast: Rc<MalVal>, env: Rc<RefCell<Env>>) -> Result<Rc<MalVal>> {
+fn eval_ast(ast: Rc<MalVal>, env: Rc<RefCell<Env>>) -> MalResult {
     match ast.as_ref() {
         MalVal::Symbol(symbol) => env
             .borrow()
             .get(symbol)
-            .ok_or_else(|| anyhow!("'{symbol}' not found.")),
+            .ok_or_else(|| MalError::Other(format!("'{symbol}' not found."))),
         MalVal::List(list) => {
             let mut buffer = Vec::new();
             for v in list {
@@ -38,7 +37,7 @@ fn eval_ast(ast: Rc<MalVal>, env: Rc<RefCell<Env>>) -> Result<Rc<MalVal>> {
     }
 }
 
-fn eval(ast: Rc<MalVal>, env: Rc<RefCell<Env>>) -> Result<Rc<MalVal>> {
+fn eval(ast: Rc<MalVal>, env: Rc<RefCell<Env>>) -> MalResult {
     match ast.as_ref() {
         MalVal::List(list) if list.is_empty() => Ok(ast),
         MalVal::List(list) => {

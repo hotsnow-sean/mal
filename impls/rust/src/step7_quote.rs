@@ -1,9 +1,8 @@
 use std::{cell::RefCell, collections::HashMap, io::Write, rc::Rc};
 
-use anyhow::{anyhow, Result};
-use rust2::{read_str, Env, MalFn, MalVal, NS};
+use rust2::{read_str, Env, MalError, MalFn, MalResult, MalVal, NS};
 
-fn read(input: &str) -> Result<MalVal> {
+fn read(input: &str) -> Result<MalVal, MalError> {
     read_str(input)
 }
 
@@ -65,13 +64,13 @@ fn quasiquote(ast: Rc<MalVal>) -> Rc<MalVal> {
     }
 }
 
-fn eval_ast(ast: Rc<MalVal>, env: Rc<RefCell<Env>>) -> Result<Rc<MalVal>> {
+fn eval_ast(ast: Rc<MalVal>, env: Rc<RefCell<Env>>) -> MalResult {
     match ast.as_ref() {
         MalVal::Symbol(symbol) => env
             .as_ref()
             .borrow()
             .get(symbol)
-            .ok_or_else(|| anyhow!("'{symbol}' not found.")),
+            .ok_or_else(|| MalError::Other(format!("'{symbol}' not found."))),
         MalVal::List(list) => {
             let mut buffer = Vec::new();
             for v in list {
@@ -97,7 +96,7 @@ fn eval_ast(ast: Rc<MalVal>, env: Rc<RefCell<Env>>) -> Result<Rc<MalVal>> {
     }
 }
 
-fn eval(ast: Rc<MalVal>, env: Rc<RefCell<Env>>) -> Result<Rc<MalVal>> {
+fn eval(ast: Rc<MalVal>, env: Rc<RefCell<Env>>) -> MalResult {
     let mut ast = ast;
     let mut env = env;
     loop {
@@ -213,13 +212,8 @@ fn print(val: &MalVal) -> String {
 fn rep(input: &str, env: &Rc<RefCell<Env>>) -> Option<String> {
     match read(input).and_then(|ast| eval(Rc::new(ast), env.clone())) {
         Ok(v) => Some(print(v.as_ref())),
-        Err(e) => {
-            if e.to_string() == *"continue" {
-                None
-            } else {
-                Some(e.to_string())
-            }
-        }
+        Err(MalError::Continue) => None,
+        Err(e) => Some(e.to_string()),
     }
 }
 

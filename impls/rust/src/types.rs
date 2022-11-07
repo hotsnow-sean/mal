@@ -1,25 +1,62 @@
 use std::{
     cell::{Cell, RefCell},
     collections::HashMap,
-    fmt::Display,
+    fmt::{Debug, Display},
     rc::Rc,
 };
 
-use anyhow::Result;
+use thiserror::Error;
 
 use crate::Env;
+
+pub type MalResult = Result<Rc<MalVal>, MalError>;
+
+#[derive(Error, Debug)]
+pub enum MalError {
+    #[error("Eexception {0}")]
+    Throw(Rc<MalVal>),
+
+    #[error("EOF")]
+    Unbalance(&'static str),
+
+    #[error("no more token, need continue")]
+    Continue,
+
+    #[error("{0}")]
+    Other(String),
+}
 
 pub struct MalFunc {
     pub ast: Rc<MalVal>,
     pub params: Vec<String>,
     pub env: Rc<RefCell<Env>>,
-    pub func: fn(Rc<MalVal>, Rc<RefCell<Env>>) -> Result<Rc<MalVal>>,
+    pub func: fn(Rc<MalVal>, Rc<RefCell<Env>>) -> MalResult,
     pub is_marco: bool,
 }
 
 pub enum MalFn {
     MalFunc(MalFunc),
-    RegularFn(Rc<dyn Fn(&[Rc<MalVal>]) -> Result<Rc<MalVal>>>),
+    RegularFn(Rc<dyn Fn(&[Rc<MalVal>]) -> MalResult>),
+}
+
+#[derive(PartialEq, Eq, Hash, Clone)]
+pub enum Hashable {
+    Keyword(String),
+    String(String),
+}
+
+pub enum MalVal {
+    Fn(Rc<MalFn>),
+    List(Vec<Rc<MalVal>>),
+    Vector(Vec<Rc<MalVal>>),
+    HashMap(HashMap<Hashable, Rc<MalVal>>),
+    Keyword(String),
+    String(String),
+    Integer(i64),
+    Bool(bool),
+    Nil,
+    Symbol(String),
+    Atom(Cell<Rc<MalVal>>),
 }
 
 impl MalFunc {
@@ -33,7 +70,7 @@ impl MalFunc {
         }
     }
 
-    pub fn run(&self, args: &[Rc<MalVal>]) -> Result<Rc<MalVal>> {
+    pub fn run(&self, args: &[Rc<MalVal>]) -> MalResult {
         let mut n_env = Env::new(self.env.clone());
         n_env.bind_expr(self.params.clone(), args.to_vec());
         (self.func)(self.ast.clone(), Rc::new(RefCell::new(n_env)))
@@ -45,7 +82,7 @@ impl MalFn {
         ast: Rc<MalVal>,
         params: Vec<String>,
         env: Rc<RefCell<Env>>,
-        func: fn(Rc<MalVal>, Rc<RefCell<Env>>) -> Result<Rc<MalVal>>,
+        func: fn(Rc<MalVal>, Rc<RefCell<Env>>) -> MalResult,
     ) -> Self {
         Self::MalFunc(MalFunc {
             ast,
@@ -56,26 +93,12 @@ impl MalFn {
         })
     }
 
-    pub fn run(&self, args: &[Rc<MalVal>]) -> Result<Rc<MalVal>> {
+    pub fn run(&self, args: &[Rc<MalVal>]) -> MalResult {
         match self {
             MalFn::RegularFn(func) => (func)(args),
             MalFn::MalFunc(func) => func.run(args),
         }
     }
-}
-
-pub enum MalVal {
-    Fn(Rc<MalFn>),
-    List(Vec<Rc<MalVal>>),
-    Vector(Vec<Rc<MalVal>>),
-    HashMap(HashMap<String, Rc<MalVal>>),
-    Keyword(String),
-    String(String),
-    Integer(i64),
-    Bool(bool),
-    Nil,
-    Symbol(String),
-    Atom(Cell<Rc<MalVal>>),
 }
 
 impl Display for MalVal {
@@ -98,6 +121,40 @@ impl PartialEq for MalVal {
             (Self::Bool(l0), Self::Bool(r0)) => l0 == r0,
             (Self::Symbol(l0), Self::Symbol(r0)) => l0 == r0,
             _ => core::mem::discriminant(self) == core::mem::discriminant(other),
+        }
+    }
+}
+
+impl Hashable {
+    pub fn pr_str(&self, readably: bool) -> String {
+        match self {
+            Hashable::Keyword(keyword) => format!(":{keyword}"),
+            Hashable::String(string) => {
+                if readably {
+                    format!("{string:?}")
+                } else {
+                    string.to_string()
+                }
+            }
+        }
+    }
+}
+
+impl From<&MalVal> for Hashable {
+    fn from(v: &MalVal) -> Self {
+        match v {
+            MalVal::Keyword(s) => Hashable::Keyword(s.to_string()),
+            MalVal::String(s) => Hashable::String(s.to_string()),
+            _ => panic!("cannot hash"),
+        }
+    }
+}
+
+impl From<&Hashable> for MalVal {
+    fn from(v: &Hashable) -> Self {
+        match v {
+            Hashable::Keyword(s) => MalVal::Keyword(s.to_string()),
+            Hashable::String(s) => MalVal::String(s.to_string()),
         }
     }
 }
@@ -129,7 +186,11 @@ impl MalVal {
                 format!(
                     "{{{}}}",
                     map.iter()
-                        .map(|(k, v)| format!("{k} {}", v.as_ref().pr_str(readably)))
+                        .map(|(k, v)| format!(
+                            "{} {}",
+                            k.pr_str(readably),
+                            v.as_ref().pr_str(readably)
+                        ))
                         .collect::<Vec<_>>()
                         .join(" ")
                 )
@@ -151,6 +212,22 @@ impl MalVal {
                 v.set(m.clone());
                 format!("(atom {})", m.as_ref().pr_str(readably))
             }
+        }
+    }
+}
+
+impl Debug for MalVal {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::List(arg0) => f.debug_tuple("List").field(arg0).finish(),
+            Self::Vector(arg0) => f.debug_tuple("Vector").field(arg0).finish(),
+            Self::Keyword(arg0) => f.debug_tuple("Keyword").field(arg0).finish(),
+            Self::String(arg0) => f.debug_tuple("String").field(arg0).finish(),
+            Self::Integer(arg0) => f.debug_tuple("Integer").field(arg0).finish(),
+            Self::Bool(arg0) => f.debug_tuple("Bool").field(arg0).finish(),
+            Self::Nil => write!(f, "Nil"),
+            Self::Symbol(arg0) => f.debug_tuple("Symbol").field(arg0).finish(),
+            _ => write!(f, "{}", self.pr_str(true)),
         }
     }
 }

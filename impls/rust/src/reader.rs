@@ -1,8 +1,6 @@
 use std::{collections::HashMap, iter::Peekable, rc::Rc, str::CharIndices};
 
-use anyhow::{bail, Result};
-
-use crate::types::MalVal;
+use crate::{types::MalVal, MalError};
 
 struct Reader<'a> {
     source: &'a str,
@@ -64,12 +62,12 @@ impl<'a> Iterator for Reader<'a> {
     }
 }
 
-pub fn read_str(input: &str) -> Result<MalVal> {
+pub fn read_str(input: &str) -> Result<MalVal, MalError> {
     let mut reader = Reader::new(input).peekable();
     read_form(&mut reader)
 }
 
-fn read_form(reader: &mut Peekable<Reader>) -> Result<MalVal> {
+fn read_form(reader: &mut Peekable<Reader>) -> Result<MalVal, MalError> {
     match reader.next() {
         Some("(") => read_list(reader),
         Some("[") => read_vector(reader),
@@ -78,7 +76,7 @@ fn read_form(reader: &mut Peekable<Reader>) -> Result<MalVal> {
             Rc::new(MalVal::Symbol("deref".to_string())),
             Rc::new(read_form(reader)?),
         ])),
-        None => bail!("continue"),
+        None => Err(MalError::Continue),
         Some(s) => {
             let mut iter = s.chars().peekable();
             iter.next_if_eq(&'-');
@@ -132,7 +130,7 @@ fn read_form(reader: &mut Peekable<Reader>) -> Result<MalVal> {
     }
 }
 
-fn read_list(reader: &mut Peekable<Reader>) -> Result<MalVal> {
+fn read_list(reader: &mut Peekable<Reader>) -> Result<MalVal, MalError> {
     let mut list = Vec::new();
     while let Some(&s) = reader.peek() {
         match s {
@@ -146,10 +144,10 @@ fn read_list(reader: &mut Peekable<Reader>) -> Result<MalVal> {
     for i in list {
         println!("{} ", i.as_ref());
     }
-    bail!("EOF")
+    Err(MalError::Unbalance("list"))
 }
 
-fn read_vector(reader: &mut Peekable<Reader>) -> Result<MalVal> {
+fn read_vector(reader: &mut Peekable<Reader>) -> Result<MalVal, MalError> {
     let mut vector = Vec::new();
     while let Some(&s) = reader.peek() {
         match s {
@@ -160,10 +158,10 @@ fn read_vector(reader: &mut Peekable<Reader>) -> Result<MalVal> {
             _ => vector.push(Rc::new(read_form(reader)?)),
         }
     }
-    bail!("EOF")
+    Err(MalError::Unbalance("vector"))
 }
 
-fn read_hashmap(reader: &mut Peekable<Reader>) -> Result<MalVal> {
+fn read_hashmap(reader: &mut Peekable<Reader>) -> Result<MalVal, MalError> {
     let mut hashmap = HashMap::new();
     while let Some(&s) = reader.peek() {
         match s {
@@ -172,20 +170,16 @@ fn read_hashmap(reader: &mut Peekable<Reader>) -> Result<MalVal> {
                 return Ok(MalVal::HashMap(hashmap));
             }
             _ => {
-                let k = match read_form(reader)? {
-                    MalVal::Keyword(s) => format!(":{s}"),
-                    MalVal::String(s) => format!("\"{s}\""),
-                    _ => unreachable!(),
-                };
+                let k = (&read_form(reader)?).into();
                 let v = read_form(reader)?;
                 hashmap.insert(k, Rc::new(v));
             }
         }
     }
-    bail!("EOF")
+    Err(MalError::Unbalance("hash-map"))
 }
 
-fn unescape(s: &str) -> Result<String> {
+fn unescape(s: &str) -> Result<String, MalError> {
     let mut buffer = String::with_capacity(s.len());
     let mut iter = s.chars().peekable();
     while let Some(c) = iter.next() {
@@ -202,5 +196,5 @@ fn unescape(s: &str) -> Result<String> {
             buffer.push(c);
         }
     }
-    bail!("EOF")
+    Err(MalError::Unbalance("string"))
 }
