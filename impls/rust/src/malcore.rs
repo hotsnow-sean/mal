@@ -4,7 +4,7 @@ use anyhow::Result;
 
 use crate::{read_str, MalVal};
 
-pub const NS: [(&str, fn(&[Rc<MalVal>]) -> Result<Rc<MalVal>>); 24] = [
+pub const NS: [(&str, fn(&[Rc<MalVal>]) -> Result<Rc<MalVal>>); 27] = [
     ("+", add),
     ("-", sub),
     ("*", mul),
@@ -29,6 +29,9 @@ pub const NS: [(&str, fn(&[Rc<MalVal>]) -> Result<Rc<MalVal>>); 24] = [
     ("deref", deref),
     ("reset!", reset),
     ("swap!", swap),
+    ("cons", cons),
+    ("concat", concat),
+    ("vec", vec),
 ];
 
 fn add(args: &[Rc<MalVal>]) -> Result<Rc<MalVal>> {
@@ -209,6 +212,38 @@ fn swap(args: &[Rc<MalVal>]) -> Result<Rc<MalVal>> {
             v.set(result.clone());
             Ok(result)
         }
+        _ => unreachable!(),
+    }
+}
+
+fn cons(args: &[Rc<MalVal>]) -> Result<Rc<MalVal>> {
+    match args[1].as_ref() {
+        MalVal::List(list) | MalVal::Vector(list) => {
+            let mut buffer = vec![args[0].clone()];
+            buffer.append(&mut list.to_vec());
+            Ok(Rc::new(MalVal::List(buffer)))
+        }
+        _ => unreachable!(),
+    }
+}
+
+fn concat(args: &[Rc<MalVal>]) -> Result<Rc<MalVal>> {
+    let mut buffer = Vec::new();
+    for v in args {
+        match v.as_ref() {
+            MalVal::List(list) | MalVal::Vector(list) => {
+                buffer.append(&mut list.to_vec());
+            }
+            _ => unreachable!(),
+        }
+    }
+    Ok(Rc::new(MalVal::List(buffer)))
+}
+
+fn vec(args: &[Rc<MalVal>]) -> Result<Rc<MalVal>> {
+    match args[0].as_ref() {
+        MalVal::List(list) => Ok(Rc::new(MalVal::Vector(list.to_vec()))),
+        MalVal::Vector(_) => Ok(args[0].clone()),
         _ => unreachable!(),
     }
 }

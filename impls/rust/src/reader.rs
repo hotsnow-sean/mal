@@ -109,7 +109,7 @@ fn read_form(reader: &mut Peekable<Reader>) -> Result<MalVal> {
                         };
                         let v = read_form(reader)?;
                         Ok(MalVal::List(vec![
-                            Rc::new(MalVal::Prefix(prefix)),
+                            Rc::new(MalVal::Symbol(prefix.to_string())),
                             Rc::new(v),
                         ]))
                     }
@@ -117,7 +117,7 @@ fn read_form(reader: &mut Peekable<Reader>) -> Result<MalVal> {
                         let first = read_form(reader)?;
                         let second = read_form(reader)?;
                         Ok(MalVal::List(vec![
-                            Rc::new(MalVal::Prefix("with-meta")),
+                            Rc::new(MalVal::Symbol("with-meta".to_string())),
                             Rc::new(second),
                             Rc::new(first),
                         ]))

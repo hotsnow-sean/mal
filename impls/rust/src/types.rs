@@ -53,7 +53,6 @@ pub enum MalVal {
     List(Vec<Rc<MalVal>>),
     Vector(Vec<Rc<MalVal>>),
     HashMap(HashMap<String, Rc<MalVal>>),
-    Prefix(&'static str),
     Keyword(String),
     String(String),
     Integer(i64),
@@ -77,7 +76,6 @@ impl PartialEq for MalVal {
             (Self::Vector(l0), Self::List(r0)) => l0 == r0,
             (Self::Vector(l0), Self::Vector(r0)) => l0 == r0,
             (Self::HashMap(l0), Self::HashMap(r0)) => l0 == r0,
-            (Self::Prefix(l0), Self::Prefix(r0)) => l0 == r0,
             (Self::Keyword(l0), Self::Keyword(r0)) => l0 == r0,
             (Self::String(l0), Self::String(r0)) => l0 == r0,
             (Self::Integer(l0), Self::Integer(r0)) => l0 == r0,
@@ -120,7 +118,6 @@ impl MalVal {
                         .join(" ")
                 )
             }
-            MalVal::Prefix(prefix) => prefix.to_string(),
             MalVal::Keyword(keyword) => format!(":{keyword}"),
             MalVal::String(string) => {
                 if readably {
