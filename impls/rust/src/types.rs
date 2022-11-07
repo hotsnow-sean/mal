@@ -14,11 +14,30 @@ pub struct MalFunc {
     pub params: Vec<String>,
     pub env: Rc<RefCell<Env>>,
     pub func: fn(Rc<MalVal>, Rc<RefCell<Env>>) -> Result<Rc<MalVal>>,
+    pub is_marco: bool,
 }
 
 pub enum MalFn {
     MalFunc(MalFunc),
     RegularFn(Rc<dyn Fn(&[Rc<MalVal>]) -> Result<Rc<MalVal>>>),
+}
+
+impl MalFunc {
+    pub fn construct_marco(&self) -> Self {
+        MalFunc {
+            ast: self.ast.clone(),
+            params: self.params.to_vec(),
+            env: self.env.clone(),
+            func: self.func,
+            is_marco: true,
+        }
+    }
+
+    pub fn run(&self, args: &[Rc<MalVal>]) -> Result<Rc<MalVal>> {
+        let mut n_env = Env::new(self.env.clone());
+        n_env.bind_expr(self.params.clone(), args.to_vec());
+        (self.func)(self.ast.clone(), Rc::new(RefCell::new(n_env)))
+    }
 }
 
 impl MalFn {
@@ -33,17 +52,14 @@ impl MalFn {
             params,
             env,
             func,
+            is_marco: false,
         })
     }
 
     pub fn run(&self, args: &[Rc<MalVal>]) -> Result<Rc<MalVal>> {
         match self {
             MalFn::RegularFn(func) => (func)(args),
-            MalFn::MalFunc(func) => {
-                let mut n_env = Env::new(func.env.clone());
-                n_env.bind_expr(func.params.clone(), args.to_vec());
-                (func.func)(func.ast.clone(), Rc::new(RefCell::new(n_env)))
-            }
+            MalFn::MalFunc(func) => func.run(args),
         }
     }
 }

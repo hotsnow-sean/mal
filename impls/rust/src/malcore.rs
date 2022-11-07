@@ -1,10 +1,10 @@
 use std::{cell::Cell, rc::Rc};
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 
 use crate::{read_str, MalVal};
 
-pub const NS: [(&str, fn(&[Rc<MalVal>]) -> Result<Rc<MalVal>>); 27] = [
+pub const NS: [(&str, fn(&[Rc<MalVal>]) -> Result<Rc<MalVal>>); 30] = [
     ("+", add),
     ("-", sub),
     ("*", mul),
@@ -32,6 +32,9 @@ pub const NS: [(&str, fn(&[Rc<MalVal>]) -> Result<Rc<MalVal>>); 27] = [
     ("cons", cons),
     ("concat", concat),
     ("vec", vec),
+    ("nth", nth),
+    ("first", first),
+    ("rest", rest),
 ];
 
 fn add(args: &[Rc<MalVal>]) -> Result<Rc<MalVal>> {
@@ -244,6 +247,39 @@ fn vec(args: &[Rc<MalVal>]) -> Result<Rc<MalVal>> {
     match args[0].as_ref() {
         MalVal::List(list) => Ok(Rc::new(MalVal::Vector(list.to_vec()))),
         MalVal::Vector(_) => Ok(args[0].clone()),
+        _ => unreachable!(),
+    }
+}
+
+fn nth(args: &[Rc<MalVal>]) -> Result<Rc<MalVal>> {
+    match (args[0].as_ref(), args[1].as_ref()) {
+        (MalVal::List(list), MalVal::Integer(i)) | (MalVal::Vector(list), MalVal::Integer(i)) => {
+            list.get(*i as usize)
+                .cloned()
+                .ok_or_else(|| anyhow!("out index"))
+        }
+        _ => unreachable!(),
+    }
+}
+
+fn first(args: &[Rc<MalVal>]) -> Result<Rc<MalVal>> {
+    match args[0].as_ref() {
+        MalVal::List(list) | MalVal::Vector(list) => Ok(list
+            .first()
+            .map_or_else(|| Rc::new(MalVal::Nil), |v| v.clone())),
+        MalVal::Nil => Ok(Rc::new(MalVal::Nil)),
+        _ => unreachable!(),
+    }
+}
+
+fn rest(args: &[Rc<MalVal>]) -> Result<Rc<MalVal>> {
+    match args[0].as_ref() {
+        MalVal::List(list) | MalVal::Vector(list) => {
+            let mut iter = list.iter();
+            iter.next();
+            Ok(Rc::new(MalVal::List(iter.cloned().collect())))
+        }
+        MalVal::Nil => Ok(Rc::new(MalVal::List(Vec::new()))),
         _ => unreachable!(),
     }
 }
