@@ -1,5 +1,5 @@
 set_languages("c++20")
-add_requires("fmt")
+add_requires("fmt", "linenoise")
 
 rule("postcpp")
   after_build(function(target)
@@ -14,3 +14,4 @@ target("step0_repl")
   set_kind("binary")
   add_rules("postcpp")
   add_files("src/step0_repl.cpp")
+  add_packages("linenoise", "fmt")
