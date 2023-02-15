@@ -1,0 +1,16 @@
+set_languages("c++20")
+add_requires("fmt")
+
+rule("postcpp")
+  after_build(function(target)
+    import("core.project.task")
+    task.run("project", { kind = "compile_commands" })
+  end)
+  after_link(function(target)
+    os.cp(target:targetfile(), ".")
+  end)
+
+target("step0_repl")
+  set_kind("binary")
+  add_rules("postcpp")
+  add_files("src/step0_repl.cpp")
