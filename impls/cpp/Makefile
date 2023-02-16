@@ -1,12 +1,12 @@
-STEPS = step0_repl
+STEPS = step0_repl step1_read_print
 
-all: $(STEPS)
+all:
+	xmake
 
-%: src/%.cpp
-	xmake build $*
+$(STEPS):
+	xmake
 
-.PHONY: all clean
+.PHONY: all clean $(STEPS)
 
 clean:
 	xmake clean
-	rm -f $(STEPS)
