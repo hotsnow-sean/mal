@@ -22,6 +22,9 @@ public:
 
     std::string PrStr(bool print_readably) const noexcept override;
 
+    const std::string& operator*() const noexcept;
+    std::string* operator->() noexcept;
+
 private:
     std::string name_;
 };
@@ -32,28 +35,36 @@ public:
 
     std::string PrStr(bool print_readably) const noexcept override;
 
+    int operator*() const noexcept;
+
 private:
     int value_;
 };
 
 class List : public MalType {
 public:
-    List(std::list<std::shared_ptr<MalType>> list);
+    using value_type = std::list<std::shared_ptr<MalType>>;
 
     std::string PrStr(bool print_readably) const noexcept override;
 
+    const value_type& operator*() const noexcept;
+    value_type* operator->() noexcept;
+
 private:
-    std::list<std::shared_ptr<MalType>> list_;
+    value_type list_;
 };
 
 class Vector : public MalType {
 public:
-    Vector(std::list<std::shared_ptr<MalType>> list);
+    using value_type = std::list<std::shared_ptr<MalType>>;
 
     std::string PrStr(bool print_readably) const noexcept override;
 
+    const value_type& operator*() const noexcept;
+    value_type* operator->() noexcept;
+
 private:
-    std::list<std::shared_ptr<MalType>> list_;
+    value_type list_;
 };
 
 class String : public MalType {
@@ -76,12 +87,16 @@ struct Hasher {
 
 class HashMap : public MalType {
 public:
+    using value_type =
+        std::unordered_map<String, std::shared_ptr<MalType>, Hasher>;
+
     std::string PrStr(bool print_readably) const noexcept override;
 
-    std::unordered_map<String, std::shared_ptr<MalType>, Hasher>* operator->();
+    const value_type& operator*() const noexcept;
+    value_type* operator->() noexcept;
 
 private:
-    std::unordered_map<String, std::shared_ptr<MalType>, Hasher> map_;
+    value_type map_;
 };
 
 class Nil : public MalType {

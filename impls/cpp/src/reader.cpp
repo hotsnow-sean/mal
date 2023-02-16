@@ -81,7 +81,7 @@ std::list<Token> Tokenize(std::string_view str) {
 
 std::shared_ptr<MalType> ReadAtom(Reader& reader) {
     auto token = reader.Next();
-    if (::isdigit(token[0]))
+    if (::isdigit(token[0]) || (token[0] == '-' && ::isdigit(token[1])))
         return std::make_shared<Number>(std::stoi(token));
     else
         return std::make_shared<Symbol>(token);
@@ -126,18 +126,25 @@ String ReadString(Reader& reader) {
 }
 
 std::shared_ptr<MalType> ReadForm(Reader& reader);
-std::shared_ptr<MalType> ReadList(Reader& reader, const char* close) {
+std::shared_ptr<MalType> ReadList(Reader& reader) {
     reader.Next();
-    std::list<std::shared_ptr<MalType>> list;
-    while (reader && reader.Peek() != close) {
-        list.push_back(std::move(ReadForm(reader)));
+    auto list = std::make_shared<List>();
+    while (reader && reader.Peek() != ")") {
+        (*list)->push_back(std::move(ReadForm(reader)));
     }
     if (!reader) throw "unbalanced"sv;
     reader.Next();
-    if (close[0] == ')')
-        return std::make_shared<List>(std::move(list));
-    else
-        return std::make_shared<Vector>(std::move(list));
+    return list;
+}
+std::shared_ptr<MalType> ReadVector(Reader& reader) {
+    reader.Next();
+    auto vector = std::make_shared<Vector>();
+    while (reader && reader.Peek() != "]") {
+        (*vector)->push_back(std::move(ReadForm(reader)));
+    }
+    if (!reader) throw "unbalanced"sv;
+    reader.Next();
+    return vector;
 }
 
 std::shared_ptr<HashMap> ReadHashMap(Reader& reader) {
@@ -153,9 +160,9 @@ std::shared_ptr<HashMap> ReadHashMap(Reader& reader) {
 std::shared_ptr<MalType> ReadForm(Reader& reader) {
     auto& token = reader.Peek();
     if (token[0] == '(')
-        return ReadList(reader, ")");
+        return ReadList(reader);
     else if (token[0] == '[')
-        return ReadList(reader, "]");
+        return ReadVector(reader);
     else if (token[0] == '{')
         return ReadHashMap(reader);
     else if (token[0] == '"' || token[0] == ':')

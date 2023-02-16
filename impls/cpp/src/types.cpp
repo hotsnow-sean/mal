@@ -8,13 +8,15 @@ std::shared_ptr<MalType> MalType::False = std::make_shared<class False>();
 
 Symbol::Symbol(std::string name) : name_(std::move(name)) {}
 std::string Symbol::PrStr(bool print_readably) const noexcept { return name_; }
+const std::string& Symbol::operator*() const noexcept { return name_; }
+std::string* Symbol::operator->() noexcept { return &name_; }
 
 Number::Number(int value) : value_(value) {}
 std::string Number::PrStr(bool print_readably) const noexcept {
     return fmt::format("{}", value_);
 }
+int Number::operator*() const noexcept { return value_; }
 
-List::List(std::list<std::shared_ptr<MalType>> list) : list_(std::move(list)) {}
 std::string List::PrStr(bool print_readably) const noexcept {
     std::string str{"("};
     for (auto it = list_.begin(); it != list_.end(); it++) {
@@ -24,9 +26,9 @@ std::string List::PrStr(bool print_readably) const noexcept {
     str += ')';
     return str;
 }
+const List::value_type& List::operator*() const noexcept { return list_; }
+List::value_type* List::operator->() noexcept { return &list_; }
 
-Vector::Vector(std::list<std::shared_ptr<MalType>> list)
-    : list_(std::move(list)) {}
 std::string Vector::PrStr(bool print_readably) const noexcept {
     std::string str{"["};
     for (auto it = list_.begin(); it != list_.end(); it++) {
@@ -36,6 +38,8 @@ std::string Vector::PrStr(bool print_readably) const noexcept {
     str += ']';
     return str;
 }
+const Vector::value_type& Vector::operator*() const noexcept { return list_; }
+Vector::value_type* Vector::operator->() noexcept { return &list_; }
 
 String::String(std::string value) : value_(value) {}
 std::string String::PrStr(bool print_readably) const noexcept {
@@ -78,10 +82,8 @@ std::string HashMap::PrStr(bool print_readably) const noexcept {
     str += '}';
     return str;
 }
-std::unordered_map<String, std::shared_ptr<MalType>, Hasher>*
-HashMap::operator->() {
-    return &map_;
-}
+const HashMap::value_type& HashMap::operator*() const noexcept { return map_; }
+HashMap::value_type* HashMap::operator->() noexcept { return &map_; }
 
 std::string Nil::PrStr(bool print_readably) const noexcept { return "nil"; }
 std::string True::PrStr(bool print_readably) const noexcept { return "true"; }

@@ -22,3 +22,8 @@ target("step1_read_print")
   set_kind("binary")
   add_files("src/step1_read_print.cpp", "src/types.cpp", "src/reader.cpp", "src/printer.cpp")
   add_packages("linenoise", "fmt")
+
+target("step2_eval")
+  set_kind("binary")
+  add_files("src/step2_eval.cpp", "src/types.cpp", "src/reader.cpp", "src/printer.cpp")
+  add_packages("linenoise", "fmt")
