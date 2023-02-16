@@ -10,13 +10,13 @@
 auto Read(std::string_view str) {
     try {
         return ReadStr(str);
-    } catch (const char* err) {
+    } catch (std::string_view err) {
         fmt::print("{}", err);
         return std::shared_ptr<MalType>(nullptr);
     }
 }
 auto Eval(auto ast) { return ast; }
-std::string Print(auto ast) { return PrStr(ast); }
+std::string Print(auto ast) { return PrStr(ast, true); }
 std::string Rep(std::string_view str) { return Print(Eval(Read(str))); }
 
 int main() {
@@ -27,7 +27,12 @@ int main() {
     while ((line = linenoise("user> ")) != NULL) {
         if (line[0] == '\0') continue;
         linenoiseHistoryAdd(line);
-        fmt::print("{}\n", Rep(line));
+        try {
+            fmt::print("{}\n", Rep(line));
+        } catch (std::nullptr_t) {
+            linenoiseFree(line);
+            continue;
+        }
         linenoiseFree(line);
     }
     linenoiseHistorySave("history.txt");
