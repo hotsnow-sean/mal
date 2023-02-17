@@ -1,12 +1,12 @@
 #pragma once
 
+#include <list>
 #include <memory>
 #include <string>
 
-#include "types.h"
-
 using Token = std::string;
 
+class MalType;
 class Reader {
 public:
     Reader(std::list<Token> tokens);

@@ -37,3 +37,8 @@ target("step4_if_fn_do")
   set_kind("binary")
   add_files("src/step4_if_fn_do.cpp", "src/types.cpp", "src/reader.cpp", "src/printer.cpp", "src/env.cpp", "src/core.cpp")
   add_packages("linenoise", "fmt")
+
+target("step5_tco")
+  set_kind("binary")
+  add_files("src/step5_tco.cpp", "src/types.cpp", "src/reader.cpp", "src/printer.cpp", "src/env.cpp", "src/core.cpp")
+  add_packages("linenoise", "fmt")

@@ -127,3 +127,11 @@ MalFunc::ReturnType MalFunc::operator()(ParamType args) const {
 std::string MalFunc::PrStr(bool print_readably) const noexcept {
     return "#<function>";
 }
+
+UserFunc::UserFunc(std::shared_ptr<MalType> ast,
+                   std::vector<std::string> params,
+                   std::shared_ptr<Env> env) noexcept
+    : ast_(std::move(ast)), params_(std::move(params)), env_(std::move(env)) {}
+std::string UserFunc::PrStr(bool print_readably) const noexcept {
+    return "#<function>";
+}

@@ -1,7 +1,6 @@
 #pragma once
 
 #include <functional>
-#include <list>
 #include <memory>
 #include <span>
 #include <string>
@@ -131,4 +130,28 @@ public:
 
 private:
     FuncType func_;
+};
+
+class Env;
+class UserFunc : public MalType {
+public:
+    UserFunc(std::shared_ptr<MalType> ast, std::vector<std::string> params,
+             std::shared_ptr<Env> env) noexcept;
+
+    std::string PrStr(bool print_readably) const noexcept override;
+
+    constexpr const std::shared_ptr<MalType>& get_ast() const noexcept {
+        return ast_;
+    }
+    constexpr const std::vector<std::string>& get_params() const noexcept {
+        return params_;
+    }
+    constexpr const std::shared_ptr<Env>& get_env() const noexcept {
+        return env_;
+    }
+
+private:
+    std::shared_ptr<MalType> ast_;
+    std::vector<std::string> params_;
+    std::shared_ptr<Env> env_;
 };

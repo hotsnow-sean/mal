@@ -7,13 +7,14 @@
 #include "linenoise.h"
 #include "printer.h"
 #include "reader.h"
+#include "types.h"
 
 using namespace std::literals;
 
 using FuncType = std::function<int(int, int)>;
-using Env = std::unordered_map<std::string_view, FuncType>;
+using MyEnv = std::unordered_map<std::string_view, FuncType>;
 
-static Env repl_env = {
+static MyEnv repl_env = {
     {"+"sv, [](int a, int b) { return a + b; }},
     {"-"sv, [](int a, int b) { return a - b; }},
     {"*"sv, [](int a, int b) { return a * b; }},
@@ -31,8 +32,9 @@ private:
     FuncType func_;
 };
 
-std::shared_ptr<MalType> Eval(std::shared_ptr<MalType> ast, const Env& env);
-std::shared_ptr<MalType> EvalAst(std::shared_ptr<MalType> ast, const Env& env) {
+std::shared_ptr<MalType> Eval(std::shared_ptr<MalType> ast, const MyEnv& env);
+std::shared_ptr<MalType> EvalAst(std::shared_ptr<MalType> ast,
+                                 const MyEnv& env) {
     if (auto s = std::dynamic_pointer_cast<Symbol>(ast)) {
         try {
             return std::make_shared<Func>(env.at(**s));
@@ -57,7 +59,7 @@ std::shared_ptr<MalType> EvalAst(std::shared_ptr<MalType> ast, const Env& env) {
 
 auto Read(std::string_view str) { return ReadStr(str); }
 
-std::shared_ptr<MalType> Eval(std::shared_ptr<MalType> ast, const Env& env) {
+std::shared_ptr<MalType> Eval(std::shared_ptr<MalType> ast, const MyEnv& env) {
     if (auto l = std::dynamic_pointer_cast<List>(ast)) {
         if (std::dynamic_pointer_cast<Vector>(l)) return EvalAst(ast, env);
         if ((*l)->empty()) return ast;

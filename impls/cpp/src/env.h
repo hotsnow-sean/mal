@@ -1,9 +1,10 @@
 #pragma once
 
 #include <memory>
+#include <span>
+#include <unordered_map>
 
-#include "types.h"
-
+class MalType;
 class Env : public std::enable_shared_from_this<Env> {
 public:
     explicit Env(std::shared_ptr<Env> outer = nullptr);

@@ -2,6 +2,5 @@
 
 #include <memory>
 
-#include "types.h"
-
+class MalType;
 std::string PrStr(const std::shared_ptr<MalType>& ast, bool print_readably);

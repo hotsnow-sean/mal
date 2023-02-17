@@ -1,8 +1,10 @@
 #include "reader.h"
 
+#include <fmt/core.h>
+
 #include <vector>
 
-#include "fmt/core.h"
+#include "types.h"
 
 using namespace std::literals;
 

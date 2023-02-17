@@ -8,6 +8,7 @@
 #include "linenoise.h"
 #include "printer.h"
 #include "reader.h"
+#include "types.h"
 
 using namespace std::literals;
 

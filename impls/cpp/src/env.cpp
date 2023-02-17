@@ -2,6 +2,8 @@
 
 #include <fmt/format.h>
 
+#include "types.h"
+
 Env::Env(std::shared_ptr<Env> outer) : outer_(std::move(outer)) {}
 
 Env::Env(std::span<const std::string> binds,
