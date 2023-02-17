@@ -4,6 +4,7 @@
 #include <string>
 #include <string_view>
 
+#include "core.h"
 #include "env.h"
 #include "linenoise.h"
 #include "printer.h"
@@ -11,16 +12,9 @@
 
 using namespace std::literals;
 
-std::unordered_map<std::string_view, std::function<int(int, int)>> repl_env = {
-    {"+"sv, [](int a, int b) { return a + b; }},
-    {"-"sv, [](int a, int b) { return a - b; }},
-    {"*"sv, [](int a, int b) { return a * b; }},
-    {"/"sv, [](int a, int b) { return a / b; }},
-};
-
-std::shared_ptr<MalType> Eval(std::shared_ptr<MalType> ast,
+std::shared_ptr<MalType> Eval(const std::shared_ptr<MalType>& ast,
                               std::shared_ptr<Env> env);
-std::shared_ptr<MalType> EvalAst(std::shared_ptr<MalType> ast,
+std::shared_ptr<MalType> EvalAst(const std::shared_ptr<MalType>& ast,
                                  std::shared_ptr<Env> env) {
     if (auto s = std::dynamic_pointer_cast<Symbol>(ast)) {
         return env->Get(**s);
@@ -42,18 +36,18 @@ std::shared_ptr<MalType> EvalAst(std::shared_ptr<MalType> ast,
 
 auto Read(std::string_view str) { return ReadStr(str); }
 
-std::shared_ptr<MalType> Eval(std::shared_ptr<MalType> ast,
+std::shared_ptr<MalType> Eval(const std::shared_ptr<MalType>& ast,
                               std::shared_ptr<Env> env) {
     if (auto l = std::dynamic_pointer_cast<List>(ast)) {
         if ((*l)->empty()) return ast;
         auto it = (*l)->begin();
         if (auto s = std::dynamic_pointer_cast<Symbol>(*it)) {
-            if (**s == "def!") {
+            if (const auto& action = **s; action == "def!") {
                 auto symbol = **std::dynamic_pointer_cast<Symbol>(*(++it));
                 auto value = Eval(*(++it), env);
                 env->Set(std::move(symbol), value);
                 return value;
-            } else if (**s == "let*") {
+            } else if (action == "let*") {
                 auto new_env = std::make_shared<Env>(env);
                 auto bindings = std::dynamic_pointer_cast<Sequence>(*(++it));
                 for (auto it = (*bindings)->begin();
@@ -63,6 +57,37 @@ std::shared_ptr<MalType> Eval(std::shared_ptr<MalType> ast,
                     new_env->Set(std::move(symbol), std::move(value));
                 }
                 return Eval(*(++it), new_env);
+            } else if (action == "do") {
+                std::shared_ptr<MalType> res;
+                for (++it; it != (*l)->end(); it++) res = Eval(*it, env);
+                return res;
+            } else if (action == "if") {
+                auto condition = Eval(*(++it), env);
+                if (std::dynamic_pointer_cast<False>(condition) ||
+                    std::dynamic_pointer_cast<Nil>(condition)) {
+                    if ((*l)->size() < 4) return MalType::Nil;
+                    return Eval(*(it + 2), env);
+                } else {
+                    return Eval(*(++it), env);
+                }
+            } else if (action == "fn*") {
+                auto binds_list =
+                    std::dynamic_pointer_cast<Sequence>((*l)->at(1));
+                auto body = (*l)->at(2);
+                std::vector<std::string> binds((*binds_list)->size());
+                std::transform(
+                    (*binds_list)->begin(), (*binds_list)->end(), binds.begin(),
+                    [](std::shared_ptr<MalType> arg) -> std::string {
+                        return **std::dynamic_pointer_cast<Symbol>(arg);
+                    });
+                auto f = [body = std::move(body), env,
+                          binds = std::move(binds)](
+                             std::span<std::shared_ptr<MalType>> args) {
+                    auto new_env = std::make_shared<Env>(
+                        std::span{binds.begin(), binds.end()}, args, env);
+                    return Eval(body, new_env);
+                };
+                return std::make_shared<MalFunc>(f);
             }
         }
         auto list = std::dynamic_pointer_cast<List>(EvalAst(l, env));
@@ -93,16 +118,12 @@ int main() {
     auto env = std::make_shared<Env>();
 
     using FuncType = MalFunc::FuncType;
-    for (auto& p : repl_env) {
-        auto& v = p.second;
-        auto f = std::make_shared<MalFunc>(
-            [&v](std::span<std::shared_ptr<MalType>> args) {
-                auto num1 = **std::dynamic_pointer_cast<Number>(args[0]);
-                auto num2 = **std::dynamic_pointer_cast<Number>(args[1]);
-                return std::make_shared<Number>(v(num1, num2));
-            });
-        env->Set(std::string{p.first}, f);
+    for (auto& [k, v] : getNS()) {
+        auto f = std::make_shared<MalFunc>(v);
+        env->Set(std::string{k}, f);
     }
+
+    Rep("(def! not (fn* (a) (if a false true)))", env);
 
     char* line;
     while ((line = linenoise("user> ")) != NULL) {

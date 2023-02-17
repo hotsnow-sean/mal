@@ -83,6 +83,12 @@ std::shared_ptr<MalType> ReadAtom(Reader& reader) {
     auto token = reader.Next();
     if (::isdigit(token[0]) || (token[0] == '-' && ::isdigit(token[1])))
         return std::make_shared<Number>(std::stoi(token));
+    else if (token == "nil")
+        return MalType::Nil;
+    else if (token == "true")
+        return MalType::True;
+    else if (token == "false")
+        return MalType::False;
     else
         return std::make_shared<Symbol>(token);
 }

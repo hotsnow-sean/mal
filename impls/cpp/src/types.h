@@ -12,6 +12,7 @@ public:
     virtual ~MalType() = default;
 
     virtual std::string PrStr(bool print_readably) const noexcept = 0;
+    virtual bool operator==(const MalType& other) const;
 
     static std::shared_ptr<MalType> Nil;
     static std::shared_ptr<MalType> True;
@@ -36,6 +37,7 @@ public:
     Number(int value);
 
     std::string PrStr(bool print_readably) const noexcept override;
+    bool operator==(const MalType& other) const override;
 
     int operator*() const noexcept;
 
@@ -43,11 +45,11 @@ private:
     int value_;
 };
 
-class List : public MalType {
+class Sequence : public MalType {
 public:
     using value_type = std::vector<std::shared_ptr<MalType>>;
 
-    std::string PrStr(bool print_readably) const noexcept override;
+    bool operator==(const MalType& other) const override;
 
     const value_type& operator*() const noexcept;
     value_type* operator->() noexcept;
@@ -56,7 +58,12 @@ protected:
     value_type list_;
 };
 
-class Vector : public List {
+class List : public Sequence {
+public:
+    std::string PrStr(bool print_readably) const noexcept override;
+};
+
+class Vector : public Sequence {
 public:
     std::string PrStr(bool print_readably) const noexcept override;
 };
@@ -68,6 +75,7 @@ public:
     String(std::string value);
 
     std::string PrStr(bool print_readably) const noexcept override;
+    bool operator==(const MalType& other) const override;
 
     bool operator==(const String& other) const;
 
@@ -96,27 +104,30 @@ private:
 class Nil : public MalType {
 public:
     std::string PrStr(bool print_readably) const noexcept override;
+    bool operator==(const MalType& other) const override;
 };
 class True : public MalType {
 public:
     std::string PrStr(bool print_readably) const noexcept override;
+    bool operator==(const MalType& other) const override;
 };
 class False : public MalType {
 public:
     std::string PrStr(bool print_readably) const noexcept override;
+    bool operator==(const MalType& other) const override;
 };
 
 class MalFunc : public MalType {
 public:
-    using ParamType = std::shared_ptr<MalType>;
+    using ParamType = std::span<std::shared_ptr<MalType>>;
     using ReturnType = std::shared_ptr<MalType>;
-    using FuncType = std::function<ReturnType(std::span<ParamType>)>;
+    using FuncType = std::function<ReturnType(ParamType)>;
 
     MalFunc(FuncType func);
 
     std::string PrStr(bool print_readably) const noexcept override;
 
-    ReturnType operator()(std::span<ParamType> args) const;
+    ReturnType operator()(ParamType args) const;
 
 private:
     FuncType func_;

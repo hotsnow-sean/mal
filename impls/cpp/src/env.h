@@ -7,6 +7,9 @@
 class Env : public std::enable_shared_from_this<Env> {
 public:
     explicit Env(std::shared_ptr<Env> outer = nullptr);
+    Env(std::span<const std::string> binds,
+        std::span<std::shared_ptr<MalType>> exprs,
+        std::shared_ptr<Env> outer = nullptr);
 
     void Set(const std::string& symbol,
              std::shared_ptr<MalType> value) noexcept;

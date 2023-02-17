@@ -4,6 +4,22 @@
 
 Env::Env(std::shared_ptr<Env> outer) : outer_(std::move(outer)) {}
 
+Env::Env(std::span<const std::string> binds,
+         std::span<std::shared_ptr<MalType>> exprs, std::shared_ptr<Env> outer)
+    : outer_(std::move(outer)) {
+    auto bit = binds.begin();
+    auto eit = exprs.begin();
+    for (; bit != binds.end(); bit++, eit++) {
+        if (*bit == "&") {
+            auto list = std::make_shared<List>();
+            (*list)->assign(eit, exprs.end());
+            Set(*(++bit), list);
+            break;
+        }
+        Set(*bit, *eit);
+    }
+}
+
 void Env::Set(const std::string& symbol,
               std::shared_ptr<MalType> value) noexcept {
     data_[symbol] = std::move(value);
