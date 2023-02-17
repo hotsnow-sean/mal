@@ -1,7 +1,9 @@
 #pragma once
 
+#include <functional>
 #include <list>
 #include <memory>
+#include <span>
 #include <string>
 #include <unordered_map>
 
@@ -43,28 +45,20 @@ private:
 
 class List : public MalType {
 public:
-    using value_type = std::list<std::shared_ptr<MalType>>;
+    using value_type = std::vector<std::shared_ptr<MalType>>;
 
     std::string PrStr(bool print_readably) const noexcept override;
 
     const value_type& operator*() const noexcept;
     value_type* operator->() noexcept;
 
-private:
+protected:
     value_type list_;
 };
 
-class Vector : public MalType {
+class Vector : public List {
 public:
-    using value_type = std::list<std::shared_ptr<MalType>>;
-
     std::string PrStr(bool print_readably) const noexcept override;
-
-    const value_type& operator*() const noexcept;
-    value_type* operator->() noexcept;
-
-private:
-    value_type list_;
 };
 
 class String : public MalType {
@@ -110,4 +104,20 @@ public:
 class False : public MalType {
 public:
     std::string PrStr(bool print_readably) const noexcept override;
+};
+
+class MalFunc : public MalType {
+public:
+    using ParamType = std::shared_ptr<MalType>;
+    using ReturnType = std::shared_ptr<MalType>;
+    using FuncType = std::function<ReturnType(std::span<ParamType>)>;
+
+    MalFunc(FuncType func);
+
+    std::string PrStr(bool print_readably) const noexcept override;
+
+    ReturnType operator()(std::span<ParamType> args) const;
+
+private:
+    FuncType func_;
 };

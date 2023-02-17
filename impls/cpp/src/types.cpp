@@ -38,8 +38,6 @@ std::string Vector::PrStr(bool print_readably) const noexcept {
     str += ']';
     return str;
 }
-const Vector::value_type& Vector::operator*() const noexcept { return list_; }
-Vector::value_type* Vector::operator->() noexcept { return &list_; }
 
 String::String(std::string value) : value_(value) {}
 std::string String::PrStr(bool print_readably) const noexcept {
@@ -88,3 +86,11 @@ HashMap::value_type* HashMap::operator->() noexcept { return &map_; }
 std::string Nil::PrStr(bool print_readably) const noexcept { return "nil"; }
 std::string True::PrStr(bool print_readably) const noexcept { return "true"; }
 std::string False::PrStr(bool print_readably) const noexcept { return "false"; }
+
+MalFunc::MalFunc(FuncType func) : func_(std::move(func)) {}
+MalFunc::ReturnType MalFunc::operator()(std::span<ParamType> args) const {
+    return func_(args);
+}
+std::string MalFunc::PrStr(bool print_readably) const noexcept {
+    return "<func>";
+}

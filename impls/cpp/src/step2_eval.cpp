@@ -39,14 +39,14 @@ std::shared_ptr<MalType> EvalAst(std::shared_ptr<MalType> ast, const Env& env) {
         } catch (...) {
             throw "error"sv;
         }
-    } else if (auto l = std::dynamic_pointer_cast<List>(ast)) {
-        auto list = std::make_shared<List>();
-        for (auto& v : **l) (*list)->emplace_back(Eval(v, env));
-        return list;
     } else if (auto v = std::dynamic_pointer_cast<Vector>(ast)) {
         auto vector = std::make_shared<Vector>();
         for (auto& item : **v) (*vector)->emplace_back(Eval(item, env));
         return vector;
+    } else if (auto l = std::dynamic_pointer_cast<List>(ast)) {
+        auto list = std::make_shared<List>();
+        for (auto& v : **l) (*list)->emplace_back(Eval(v, env));
+        return list;
     } else if (auto h = std::dynamic_pointer_cast<HashMap>(ast)) {
         auto map = std::make_shared<HashMap>();
         for (auto& [k, v] : **h) (*map)->emplace(k, Eval(v, env));
@@ -59,6 +59,7 @@ auto Read(std::string_view str) { return ReadStr(str); }
 
 std::shared_ptr<MalType> Eval(std::shared_ptr<MalType> ast, const Env& env) {
     if (auto l = std::dynamic_pointer_cast<List>(ast)) {
+        if (std::dynamic_pointer_cast<Vector>(l)) return EvalAst(ast, env);
         if ((*l)->empty()) return ast;
         auto list = std::dynamic_pointer_cast<List>(EvalAst(l, env));
         auto it = (**list).begin();
