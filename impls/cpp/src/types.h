@@ -23,6 +23,7 @@ public:
     Symbol(std::string name);
 
     std::string PrStr(bool print_readably) const noexcept override;
+    bool operator==(const MalType& other) const override;
 
     const std::string& operator*() const noexcept;
     std::string* operator->() noexcept;

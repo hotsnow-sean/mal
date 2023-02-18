@@ -164,24 +164,48 @@ std::shared_ptr<HashMap> ReadHashMap(Reader& reader) {
         auto k = ReadString(reader);
         (*map)->emplace(std::move(k), ReadForm(reader));
     }
+    if (!reader) throw "unbalanced"sv;
+    reader.Next();
     return map;
 }
 
 std::shared_ptr<MalType> ReadForm(Reader& reader) {
     auto& token = reader.Peek();
-    if (token[0] == '(')
+    if (token == "(")
         return ReadList(reader);
-    else if (token[0] == '[')
+    else if (token == "[")
         return ReadVector(reader);
-    else if (token[0] == '{')
+    else if (token == "{")
         return ReadHashMap(reader);
     else if (token[0] == '"' || token[0] == ':')
         return std::make_shared<String>(ReadString(reader));
-    else if (token[0] == '@') {
+    else if (token == "@") {
         reader.Next();
         auto list = std::make_shared<List>();
-        (*list)->push_back(std::make_shared<Symbol>("deref"));
-        (*list)->push_back(ReadForm(reader));
+        (*list)->assign({std::make_shared<Symbol>("deref"), ReadForm(reader)});
+        return list;
+    } else if (token == "'") {
+        reader.Next();
+        auto list = std::make_shared<List>();
+        (*list)->assign({std::make_shared<Symbol>("quote"), ReadForm(reader)});
+        return list;
+    } else if (token == "`") {
+        reader.Next();
+        auto list = std::make_shared<List>();
+        (*list)->assign(
+            {std::make_shared<Symbol>("quasiquote"), ReadForm(reader)});
+        return list;
+    } else if (token == "~") {
+        reader.Next();
+        auto list = std::make_shared<List>();
+        (*list)->assign(
+            {std::make_shared<Symbol>("unquote"), ReadForm(reader)});
+        return list;
+    } else if (token == "~@") {
+        reader.Next();
+        auto list = std::make_shared<List>();
+        (*list)->assign(
+            {std::make_shared<Symbol>("splice-unquote"), ReadForm(reader)});
         return list;
     } else
         return ReadAtom(reader);

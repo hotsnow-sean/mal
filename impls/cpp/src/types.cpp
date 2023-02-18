@@ -10,6 +10,12 @@ bool MalType::operator==(const MalType& other) const { return false; }
 
 Symbol::Symbol(std::string name) : name_(std::move(name)) {}
 std::string Symbol::PrStr(bool print_readably) const noexcept { return name_; }
+bool Symbol::operator==(const MalType& other) const {
+    if (auto o = dynamic_cast<const Symbol*>(&other)) {
+        return o->name_ == name_;
+    }
+    return false;
+}
 const std::string& Symbol::operator*() const noexcept { return name_; }
 std::string* Symbol::operator->() noexcept { return &name_; }
 

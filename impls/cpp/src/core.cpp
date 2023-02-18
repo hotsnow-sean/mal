@@ -163,6 +163,34 @@ const std::unordered_map<std::string_view, BaseFunc::FuncType>& getNS() {
              (**atom) = value;
              return value;
          }},
+        {"cons"sv,
+         [](MalFunc::ParamType args) {
+             auto list = std::dynamic_pointer_cast<Sequence>(args[1]);
+             auto new_list = std::make_shared<List>();
+             (*new_list)->push_back(args[0]);
+             (*new_list)->insert((*new_list)->end(), (*list)->begin(),
+                                 (*list)->end());
+             return new_list;
+         }},
+        {"concat"sv,
+         [](MalFunc::ParamType args) {
+             auto new_list = std::make_shared<List>();
+             for (auto& arg : args) {
+                 auto list = std::dynamic_pointer_cast<Sequence>(arg);
+                 (*new_list)->insert((*new_list)->end(), (*list)->begin(),
+                                     (*list)->end());
+             }
+             return new_list;
+         }},
+        {"vec"sv,
+         [](MalFunc::ParamType args) -> std::shared_ptr<MalType> {
+             if (auto v = std::dynamic_pointer_cast<Vector>(args[0]))
+                 return args[0];
+             auto list = std::dynamic_pointer_cast<List>(args[0]);
+             auto vector = std::make_shared<Vector>();
+             (*vector)->assign((*list)->begin(), (*list)->end());
+             return vector;
+         }},
     };
     return map;
 }
