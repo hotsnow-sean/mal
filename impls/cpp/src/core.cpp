@@ -191,6 +191,30 @@ const std::unordered_map<std::string_view, BaseFunc::FuncType>& getNS() {
              (*vector)->assign((*list)->begin(), (*list)->end());
              return vector;
          }},
+        {"nth"sv,
+         [](MalFunc::ParamType args) -> std::shared_ptr<MalType> {
+             auto seq = std::dynamic_pointer_cast<Sequence>(args[0]);
+             auto idx = std::dynamic_pointer_cast<Number>(args[1]);
+             try {
+                 return (*seq)->at(**idx);
+             } catch (std::out_of_range) {
+                 throw "out of range"sv;
+             }
+         }},
+        {"first"sv,
+         [](MalFunc::ParamType args) -> std::shared_ptr<MalType> {
+             auto seq = std::dynamic_pointer_cast<Sequence>(args[0]);
+             if (!seq || (*seq)->empty()) return MalType::Nil;
+             return (**seq)[0];
+         }},
+        {"rest"sv,
+         [](MalFunc::ParamType args) -> std::shared_ptr<MalType> {
+             auto seq = std::dynamic_pointer_cast<Sequence>(args[0]);
+             auto list = std::make_shared<List>();
+             if (!seq || (*seq)->empty()) return list;
+             (*list)->assign((*seq)->begin() + 1, (*seq)->end());
+             return list;
+         }},
     };
     return map;
 }

@@ -159,12 +159,16 @@ public:
     constexpr const std::shared_ptr<Env>& get_env() const noexcept {
         return env_;
     }
+    constexpr bool is_macro() const noexcept { return is_macro_; }
+    constexpr void macro(bool val) noexcept { is_macro_ = val; }
 
 private:
     std::shared_ptr<MalType> ast_;
     std::vector<std::string> params_;
     std::shared_ptr<Env> env_;
     Callback callback_;
+
+    bool is_macro_{false};
 };
 
 class Atom : public MalType {
