@@ -76,6 +76,8 @@ public:
     std::string PrStr(bool print_readably) const noexcept override;
     bool operator==(const MalType& other) const override;
 
+    const std::string& operator*() const noexcept;
+    std::string* operator->() noexcept;
     bool operator==(const String& other) const;
 
 private:
@@ -120,25 +122,32 @@ class MalFunc : public MalType {
 public:
     using ParamType = std::span<std::shared_ptr<MalType>>;
     using ReturnType = std::shared_ptr<MalType>;
-    using FuncType = std::function<ReturnType(ParamType)>;
-
-    MalFunc(FuncType func);
-
     std::string PrStr(bool print_readably) const noexcept override;
 
-    ReturnType operator()(ParamType args) const;
+    virtual ReturnType operator()(ParamType args) const = 0;
+};
+
+class BaseFunc : public MalFunc {
+public:
+    using FuncType = std::function<ReturnType(ParamType)>;
+
+    BaseFunc(FuncType func);
+
+    ReturnType operator()(ParamType args) const override;
 
 private:
     FuncType func_;
 };
 
 class Env;
-class UserFunc : public MalType {
+class UserFunc : public MalFunc {
 public:
-    UserFunc(std::shared_ptr<MalType> ast, std::vector<std::string> params,
-             std::shared_ptr<Env> env) noexcept;
+    using Callback = std::function<ReturnType(ParamType, const UserFunc&)>;
 
-    std::string PrStr(bool print_readably) const noexcept override;
+    UserFunc(std::shared_ptr<MalType> ast, std::vector<std::string> params,
+             std::shared_ptr<Env> env, Callback callback) noexcept;
+
+    ReturnType operator()(ParamType args) const override;
 
     constexpr const std::shared_ptr<MalType>& get_ast() const noexcept {
         return ast_;
@@ -154,4 +163,21 @@ private:
     std::shared_ptr<MalType> ast_;
     std::vector<std::string> params_;
     std::shared_ptr<Env> env_;
+    Callback callback_;
+};
+
+class Atom : public MalType {
+public:
+    using value_type = std::shared_ptr<MalType>;
+
+    Atom(value_type value);
+
+    std::string PrStr(bool print_readably) const noexcept override;
+
+    const value_type& operator*() const noexcept;
+    std::shared_ptr<MalType>& operator*() noexcept;
+    value_type* operator->() noexcept;
+
+private:
+    value_type value_;
 };

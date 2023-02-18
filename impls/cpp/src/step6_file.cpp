@@ -122,7 +122,7 @@ std::string Rep(std::string_view str, std::shared_ptr<Env> env) {
     }
 }
 
-int main() {
+int main(int argc, const char* argv[]) {
     linenoiseHistorySetMaxLen(30);
     linenoiseHistoryLoad("history.txt");
 
@@ -133,7 +133,26 @@ int main() {
         env->Set(std::string{k}, f);
     }
 
+    env->Set("eval", std::make_shared<BaseFunc>(
+                         [env = std::weak_ptr<Env>(env)](
+                             std::span<std::shared_ptr<MalType>> args) {
+                             return Eval(args[0], env.lock());
+                         }));
+
     Rep("(def! not (fn* (a) (if a false true)))", env);
+    Rep("(def! load-file (fn* (f) (eval (read-string (str \"(do \" (slurp f) "
+        "\"\nnil)\")))))",
+        env);
+
+    auto list = std::make_shared<List>();
+    if (argc > 1) {
+        for (int i = 2; i < argc; i++)
+            (*list)->push_back(std::make_shared<String>(argv[i]));
+        env->Set("*ARGV*", std::move(list));
+        Rep(fmt::format("(load-file \"{}\")", argv[1]), env);
+        return 0;
+    }
+    env->Set("*ARGV*", std::move(list));
 
     char* line;
     while ((line = linenoise("user> ")) != NULL) {

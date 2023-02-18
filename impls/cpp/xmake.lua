@@ -42,3 +42,8 @@ target("step5_tco")
   set_kind("binary")
   add_files("src/step5_tco.cpp", "src/types.cpp", "src/reader.cpp", "src/printer.cpp", "src/env.cpp", "src/core.cpp")
   add_packages("linenoise", "fmt")
+
+target("step6_file")
+  set_kind("binary")
+  add_files("src/step6_file.cpp", "src/types.cpp", "src/reader.cpp", "src/printer.cpp", "src/env.cpp", "src/core.cpp")
+  add_packages("linenoise", "fmt")

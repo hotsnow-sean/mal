@@ -93,10 +93,9 @@ int main() {
 
     auto env = std::make_shared<Env>();
 
-    using FuncType = MalFunc::FuncType;
     for (auto& p : repl_env) {
         auto& v = p.second;
-        auto f = std::make_shared<MalFunc>(
+        auto f = std::make_shared<BaseFunc>(
             [&v](std::span<std::shared_ptr<MalType>> args) {
                 auto num1 = **std::dynamic_pointer_cast<Number>(args[0]);
                 auto num2 = **std::dynamic_pointer_cast<Number>(args[1]);

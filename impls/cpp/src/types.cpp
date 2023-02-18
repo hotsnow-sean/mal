@@ -85,6 +85,8 @@ bool String::operator==(const MalType& other) const {
     }
     return false;
 }
+const std::string& String::operator*() const noexcept { return value_; }
+std::string* String::operator->() noexcept { return &value_; }
 bool String::operator==(const String& other) const {
     return value_ == other.value_;
 }
@@ -120,18 +122,30 @@ bool False::operator==(const MalType& other) const {
     return dynamic_cast<const False*>(&other);
 }
 
-MalFunc::MalFunc(FuncType func) : func_(std::move(func)) {}
-MalFunc::ReturnType MalFunc::operator()(ParamType args) const {
-    return func_(args);
-}
 std::string MalFunc::PrStr(bool print_readably) const noexcept {
     return "#<function>";
 }
 
-UserFunc::UserFunc(std::shared_ptr<MalType> ast,
-                   std::vector<std::string> params,
-                   std::shared_ptr<Env> env) noexcept
-    : ast_(std::move(ast)), params_(std::move(params)), env_(std::move(env)) {}
-std::string UserFunc::PrStr(bool print_readably) const noexcept {
-    return "#<function>";
+BaseFunc::BaseFunc(FuncType func) : func_(std::move(func)) {}
+BaseFunc::ReturnType BaseFunc::operator()(ParamType args) const {
+    return func_(args);
 }
+
+UserFunc::UserFunc(std::shared_ptr<MalType> ast,
+                   std::vector<std::string> params, std::shared_ptr<Env> env,
+                   Callback callback) noexcept
+    : ast_(std::move(ast)),
+      params_(std::move(params)),
+      env_(std::move(env)),
+      callback_(std::move(callback)) {}
+UserFunc::ReturnType UserFunc::operator()(ParamType args) const {
+    return callback_(args, *this);
+}
+
+Atom::Atom(value_type value) : value_(std::move(value)) {}
+std::string Atom::PrStr(bool print_readably) const noexcept {
+    return fmt::format("(atom {})", (*value_).PrStr(print_readably));
+}
+const Atom::value_type& Atom::operator*() const noexcept { return value_; }
+std::shared_ptr<MalType>& Atom::operator*() noexcept { return value_; }
+Atom::value_type* Atom::operator->() noexcept { return &value_; }

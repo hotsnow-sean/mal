@@ -2,10 +2,14 @@
 
 #include <fmt/core.h>
 
+#include <fstream>
+
+#include "reader.h"
+
 using namespace std::literals;
 
-const std::unordered_map<std::string_view, MalFunc::FuncType>& getNS() {
-    static std::unordered_map<std::string_view, MalFunc::FuncType> map{
+const std::unordered_map<std::string_view, BaseFunc::FuncType>& getNS() {
+    static std::unordered_map<std::string_view, BaseFunc::FuncType> map{
         {"+"sv,
          [](MalFunc::ParamType args) {
              auto num1 = **std::dynamic_pointer_cast<Number>(args[0]);
@@ -114,6 +118,50 @@ const std::unordered_map<std::string_view, MalFunc::FuncType>& getNS() {
              }
              fmt::print("\n");
              return MalType::Nil;
+         }},
+        {"read-string"sv,
+         [](MalFunc::ParamType args) {
+             const auto& str = **std::dynamic_pointer_cast<String>(args[0]);
+             return ReadStr(str);
+         }},
+        {"slurp"sv,
+         [](MalFunc::ParamType args) {
+             const auto& filename =
+                 **std::dynamic_pointer_cast<String>(args[0]);
+             std::ifstream ifs(filename);
+             std::string content{std::istreambuf_iterator<char>(ifs),
+                                 std::istreambuf_iterator<char>()};
+             return std::make_shared<String>(content);
+         }},
+        {"atom"sv,
+         [](MalFunc::ParamType args) {
+             return std::make_shared<Atom>(args[0]);
+         }},
+        {"atom?"sv,
+         [](MalFunc::ParamType args) {
+             return std::dynamic_pointer_cast<Atom>(args[0]) ? MalType::True
+                                                             : MalType::False;
+         }},
+        {"deref"sv,
+         [](MalFunc::ParamType args) {
+             return **std::dynamic_pointer_cast<Atom>(args[0]);
+         }},
+        {"reset!"sv,
+         [](MalFunc::ParamType args) {
+             auto value = args[1];
+             **std::dynamic_pointer_cast<Atom>(args[0]) = value;
+             return value;
+         }},
+        {"swap!"sv,
+         [](MalFunc::ParamType args) {
+             auto fn = std::dynamic_pointer_cast<MalFunc>(args[1]);
+             auto atom = std::dynamic_pointer_cast<Atom>(args[0]);
+             std::vector<std::shared_ptr<MalType>> new_args{**atom};
+             if (args.size() > 2)
+                 new_args.insert(new_args.end(), args.begin() + 2, args.end());
+             auto value = (*fn)(new_args);
+             (**atom) = value;
+             return value;
          }},
     };
     return map;

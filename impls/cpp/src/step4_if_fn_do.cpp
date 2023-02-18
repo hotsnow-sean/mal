@@ -87,7 +87,7 @@ std::shared_ptr<MalType> Eval(const std::shared_ptr<MalType>& ast,
                         std::span{binds.begin(), binds.end()}, args, env);
                     return Eval(body, new_env);
                 };
-                return std::make_shared<MalFunc>(f);
+                return std::make_shared<BaseFunc>(f);
             }
         }
         auto list = std::dynamic_pointer_cast<List>(EvalAst(l, env));
@@ -117,9 +117,8 @@ int main() {
 
     auto env = std::make_shared<Env>();
 
-    using FuncType = MalFunc::FuncType;
     for (auto& [k, v] : getNS()) {
-        auto f = std::make_shared<MalFunc>(v);
+        auto f = std::make_shared<BaseFunc>(v);
         env->Set(std::string{k}, f);
     }
 

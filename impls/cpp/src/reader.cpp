@@ -66,9 +66,11 @@ std::list<Token> Tokenize(std::string_view str) {
                 }
                 break;
             }
-            case ';':
-                str.remove_prefix(str.size());
+            case ';': {
+                auto it = str.find('\n');
+                str.remove_prefix(it == str.npos ? str.size() : it);
                 break;
+            }
             default: {
                 auto i = str.find_first_of("[]{}()'\"`,; \t\n\v\f\r");
                 if (i == str.npos) i = str.size();
@@ -175,7 +177,13 @@ std::shared_ptr<MalType> ReadForm(Reader& reader) {
         return ReadHashMap(reader);
     else if (token[0] == '"' || token[0] == ':')
         return std::make_shared<String>(ReadString(reader));
-    else
+    else if (token[0] == '@') {
+        reader.Next();
+        auto list = std::make_shared<List>();
+        (*list)->push_back(std::make_shared<Symbol>("deref"));
+        (*list)->push_back(ReadForm(reader));
+        return list;
+    } else
         return ReadAtom(reader);
 }
 
