@@ -65,7 +65,7 @@ std::string Vector::PrStr(bool print_readably) const noexcept {
 
 String::String(std::string value) : value_(value) {}
 std::string String::PrStr(bool print_readably) const noexcept {
-    if (!value_.empty() && value_[0] == (char)0xff) {
+    if (IsKeyWord()) {
         return fmt::format(":{}", std::string_view(value_).substr(1));
     } else if (print_readably) {
         std::string str;
@@ -96,6 +96,9 @@ std::string* String::operator->() noexcept { return &value_; }
 bool String::operator==(const String& other) const {
     return value_ == other.value_;
 }
+bool String::IsKeyWord() const noexcept {
+    return !value_.empty() && value_[0] == (char)0xff;
+}
 
 size_t Hasher::operator()(const String& s) const {
     return std::hash<std::string>{}(s.value_);
@@ -112,7 +115,17 @@ std::string HashMap::PrStr(bool print_readably) const noexcept {
     str += '}';
     return str;
 }
+bool HashMap::operator==(const MalType& other) const {
+    auto o = dynamic_cast<const HashMap*>(&other);
+    if (!o || o->map_.size() != map_.size()) return false;
+    for (auto& [k, v] : o->map_) {
+        auto it = map_.find(k);
+        if (it == map_.end() || *v != *it->second) return false;
+    }
+    return true;
+}
 const HashMap::value_type& HashMap::operator*() const noexcept { return map_; }
+HashMap::value_type& HashMap::operator*() noexcept { return map_; }
 HashMap::value_type* HashMap::operator->() noexcept { return &map_; }
 
 std::string Nil::PrStr(bool print_readably) const noexcept { return "nil"; }

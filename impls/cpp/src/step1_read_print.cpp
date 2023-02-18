@@ -6,12 +6,13 @@
 #include "linenoise.h"
 #include "printer.h"
 #include "reader.h"
+#include "types.h"
 
 auto Read(std::string_view str) {
     try {
         return ReadStr(str);
-    } catch (std::string_view err) {
-        fmt::print("{}", err);
+    } catch (std::shared_ptr<MalType> err) {
+        fmt::print("Exception {}", err->PrStr(false));
         return std::shared_ptr<MalType>(nullptr);
     }
 }

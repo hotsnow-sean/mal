@@ -57,3 +57,8 @@ target("step8_macros")
   set_kind("binary")
   add_files("src/step8_macros.cpp", "src/types.cpp", "src/reader.cpp", "src/printer.cpp", "src/env.cpp", "src/core.cpp")
   add_packages("linenoise", "fmt")
+
+target("step9_try")
+  set_kind("binary")
+  add_files("src/step9_try.cpp", "src/types.cpp", "src/reader.cpp", "src/printer.cpp", "src/env.cpp", "src/core.cpp")
+  add_packages("linenoise", "fmt")

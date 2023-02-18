@@ -166,11 +166,8 @@ std::string Print(auto ast) { return PrStr(ast, true); }
 std::string Rep(std::string_view str, std::shared_ptr<Env> env) {
     try {
         return Print(Eval(Read(str), env));
-    } catch (std::string_view err) {
-        fmt::print("{}", err);
-        return "";
-    } catch (std::string err) {
-        fmt::print("{}", err);
+    } catch (std::shared_ptr<MalType> err) {
+        fmt::print("Exception {}", err->PrStr(false));
         return "";
     }
 }

@@ -81,6 +81,8 @@ public:
     std::string* operator->() noexcept;
     bool operator==(const String& other) const;
 
+    bool IsKeyWord() const noexcept;
+
 private:
     std::string value_;
 };
@@ -95,8 +97,10 @@ public:
         std::unordered_map<String, std::shared_ptr<MalType>, Hasher>;
 
     std::string PrStr(bool print_readably) const noexcept override;
+    bool operator==(const MalType& other) const override;
 
     const value_type& operator*() const noexcept;
+    value_type& operator*() noexcept;
     value_type* operator->() noexcept;
 
 private:

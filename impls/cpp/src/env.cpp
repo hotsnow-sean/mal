@@ -36,5 +36,6 @@ std::shared_ptr<const Env> Env::Find(const std::string& symbol) const {
 std::shared_ptr<MalType> Env::Get(const std::string& symbol) const {
     auto env = Find(symbol);
     if (env) return env->data_.at(symbol);
-    throw fmt::format("'{}' not found.", symbol);
+    throw std::shared_ptr<MalType>(
+        std::make_shared<String>(fmt::format("'{}' not found", symbol)));
 }

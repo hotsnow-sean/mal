@@ -132,7 +132,7 @@ String ReadString(Reader& reader) {
     } else if (token[0] == ':') {
         return std::string{(char)0xff} + token.substr(1);
     }
-    throw "error";
+    throw std::shared_ptr<MalType>(std::make_shared<String>("error"));
 }
 
 std::shared_ptr<MalType> ReadForm(Reader& reader);
@@ -142,7 +142,8 @@ std::shared_ptr<MalType> ReadList(Reader& reader) {
     while (reader && reader.Peek() != ")") {
         (*list)->push_back(std::move(ReadForm(reader)));
     }
-    if (!reader) throw "unbalanced"sv;
+    if (!reader)
+        throw std::shared_ptr<MalType>(std::make_shared<String>("unbalanced"));
     reader.Next();
     return list;
 }
@@ -152,7 +153,8 @@ std::shared_ptr<MalType> ReadVector(Reader& reader) {
     while (reader && reader.Peek() != "]") {
         (*vector)->push_back(std::move(ReadForm(reader)));
     }
-    if (!reader) throw "unbalanced"sv;
+    if (!reader)
+        throw std::shared_ptr<MalType>(std::make_shared<String>("unbalanced"));
     reader.Next();
     return vector;
 }
@@ -164,7 +166,8 @@ std::shared_ptr<HashMap> ReadHashMap(Reader& reader) {
         auto k = ReadString(reader);
         (*map)->emplace(std::move(k), ReadForm(reader));
     }
-    if (!reader) throw "unbalanced"sv;
+    if (!reader)
+        throw std::shared_ptr<MalType>(std::make_shared<String>("unbalanced"));
     reader.Next();
     return map;
 }

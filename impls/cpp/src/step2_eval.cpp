@@ -39,7 +39,7 @@ std::shared_ptr<MalType> EvalAst(std::shared_ptr<MalType> ast,
         try {
             return std::make_shared<Func>(env.at(**s));
         } catch (...) {
-            throw "error"sv;
+            throw std::shared_ptr<MalType>(std::make_shared<String>("error"));
         }
     } else if (auto v = std::dynamic_pointer_cast<Vector>(ast)) {
         auto vector = std::make_shared<Vector>();
@@ -77,8 +77,8 @@ std::string Print(auto ast) { return PrStr(ast, true); }
 std::string Rep(std::string_view str) {
     try {
         return Print(Eval(Read(str), repl_env));
-    } catch (std::string_view err) {
-        fmt::print("{}", err);
+    } catch (std::shared_ptr<MalType> err) {
+        fmt::print("Exception {}", err->PrStr(false));
         return "";
     }
 }

@@ -10,6 +10,81 @@
 #include "printer.h"
 #include "reader.h"
 
+bool IsMacroCall(const std::shared_ptr<MalType>& ast,
+                 const std::shared_ptr<Env>& env) {
+    if (auto l = std::dynamic_pointer_cast<List>(ast)) {
+        if ((*l)->empty()) return false;
+        if (auto s = std::dynamic_pointer_cast<Symbol>((**l)[0])) {
+            try {
+                auto val = env->Get(**s);
+                if (auto func = std::dynamic_pointer_cast<UserFunc>(val)) {
+                    return func->is_macro();
+                }
+            } catch (...) {
+                return false;
+            }
+        }
+    }
+    return false;
+}
+
+std::shared_ptr<MalType> MacroExpand(std::shared_ptr<MalType> ast,
+                                     const std::shared_ptr<Env>& env) {
+    while (IsMacroCall(ast, env)) {
+        auto list = std::dynamic_pointer_cast<List>(ast);
+        auto symbol = std::dynamic_pointer_cast<Symbol>((**list)[0]);
+        auto func = std::dynamic_pointer_cast<UserFunc>(env->Get(**symbol));
+        ast = (*func)(std::span{(*list)->begin() + 1, (*list)->end()});
+    }
+    return ast;
+}
+
+std::shared_ptr<MalType> Quasiquote(std::shared_ptr<MalType> ast) {
+    if (auto seq = std::dynamic_pointer_cast<Sequence>(ast)) {
+        if (!(*seq)->empty()) {
+            if (auto l = std::dynamic_pointer_cast<List>(seq)) {
+                if (auto s = std::dynamic_pointer_cast<Symbol>((**l)[0])) {
+                    if (**s == "unquote") return (*l)->at(1);
+                }
+            }
+        }
+        auto list = std::make_shared<List>();
+        for (auto it = (*seq)->rbegin(); it != (*seq)->rend(); it++) {
+            if (auto subl = std::dynamic_pointer_cast<List>(*it)) {
+                if (!(*subl)->empty()) {
+                    if (auto s =
+                            std::dynamic_pointer_cast<Symbol>((**subl)[0])) {
+                        if (**s == "splice-unquote") {
+                            auto new_list = std::make_shared<List>();
+                            (*new_list)->assign(
+                                {std::make_shared<Symbol>("concat"),
+                                 (*subl)->at(1), list});
+                            list.swap(new_list);
+                            continue;
+                        }
+                    }
+                }
+            }
+            auto new_list = std::make_shared<List>();
+            (*new_list)->assign(
+                {std::make_shared<Symbol>("cons"), Quasiquote(*it), list});
+            list.swap(new_list);
+        }
+        if (auto v = std::dynamic_pointer_cast<Vector>(seq)) {
+            auto new_list = std::make_shared<List>();
+            (*new_list)->assign({std::make_shared<Symbol>("vec"), list});
+            return new_list;
+        }
+        return list;
+    } else if (std::dynamic_pointer_cast<HashMap>(ast) ||
+               std::dynamic_pointer_cast<Symbol>(ast)) {
+        auto list = std::make_shared<List>();
+        (*list)->assign({std::make_shared<Symbol>("quote"), ast});
+        return list;
+    }
+    return ast;
+}
+
 std::shared_ptr<MalType> Eval(std::shared_ptr<MalType> ast,
                               std::shared_ptr<Env> env);
 std::shared_ptr<MalType> EvalAst(const std::shared_ptr<MalType>& ast,
@@ -37,6 +112,7 @@ auto Read(std::string_view str) { return ReadStr(str); }
 std::shared_ptr<MalType> Eval(std::shared_ptr<MalType> ast,
                               std::shared_ptr<Env> env) {
     while (true) {
+        ast = MacroExpand(ast, env);
         if (auto l = std::dynamic_pointer_cast<List>(ast)) {
             if ((*l)->empty()) return ast;
             auto it = (*l)->begin();
@@ -90,6 +166,35 @@ std::shared_ptr<MalType> Eval(std::shared_ptr<MalType> ast,
                             return Eval(func.get_ast(), new_env);
                         };
                     return std::make_shared<UserFunc>(ast, params, env, f);
+                } else if (action == "quote") {
+                    return *(++it);
+                } else if (action == "quasiquoteexpand") {
+                    return Quasiquote(*(++it));
+                } else if (action == "quasiquote") {
+                    ast = Quasiquote(*(++it));
+                    continue;
+                } else if (action == "defmacro!") {
+                    auto symbol = **std::dynamic_pointer_cast<Symbol>(*(++it));
+                    auto value = Eval(*(++it), env);
+                    std::dynamic_pointer_cast<UserFunc>(value)->macro(true);
+                    env->Set(std::move(symbol), value);
+                    return value;
+                } else if (action == "macroexpand") {
+                    return MacroExpand(*(++it), env);
+                } else if (action == "try*") {
+                    try {
+                        return Eval(*(++it), env);
+                    } catch (std::shared_ptr<MalType> err) {
+                        if ((*l)->size() < 3) throw err;
+                        auto catch_list =
+                            std::dynamic_pointer_cast<List>(*(++it));
+                        auto symbol = **std::dynamic_pointer_cast<Symbol>(
+                            (*catch_list)->at(1));
+                        env = std::make_shared<Env>(env);
+                        env->Set(symbol, err);
+                        ast = (*catch_list)->at(2);
+                        continue;
+                    }
                 }
             }
             auto list = std::dynamic_pointer_cast<List>(EvalAst(l, env));
@@ -139,6 +244,10 @@ int main(int argc, const char* argv[]) {
     Rep("(def! not (fn* (a) (if a false true)))", env);
     Rep("(def! load-file (fn* (f) (eval (read-string (str \"(do \" (slurp f) "
         "\"\nnil)\")))))",
+        env);
+    Rep("(defmacro! cond (fn* (& xs) (if (> (count xs) 0) (list 'if (first xs) "
+        "(if (> (count xs) 1) (nth xs 1) (throw \"odd number of forms to "
+        "cond\")) (cons 'cond (rest (rest xs)))))))",
         env);
 
     auto list = std::make_shared<List>();
