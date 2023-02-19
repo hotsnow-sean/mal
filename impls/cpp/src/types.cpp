@@ -40,8 +40,10 @@ bool Sequence::operator==(const MalType& other) const {
     }
     return false;
 }
-const List::value_type& Sequence::operator*() const noexcept { return list_; }
-List::value_type* Sequence::operator->() noexcept { return &list_; }
+const Sequence::value_type& Sequence::operator*() const noexcept {
+    return list_;
+}
+Sequence::value_type* Sequence::operator->() noexcept { return &list_; }
 
 std::string List::PrStr(bool print_readably) const noexcept {
     std::string str{"("};
@@ -52,6 +54,13 @@ std::string List::PrStr(bool print_readably) const noexcept {
     str += ')';
     return str;
 }
+std::shared_ptr<MalType> List::WithMeta(
+    std::shared_ptr<MalType> metadata) const noexcept {
+    auto meta_list = std::make_shared<List>();
+    meta_list->list_ = list_;
+    meta_list->metadata_ = metadata;
+    return meta_list;
+}
 
 std::string Vector::PrStr(bool print_readably) const noexcept {
     std::string str{"["};
@@ -61,6 +70,13 @@ std::string Vector::PrStr(bool print_readably) const noexcept {
     }
     str += ']';
     return str;
+}
+std::shared_ptr<MalType> Vector::WithMeta(
+    std::shared_ptr<MalType> metadata) const noexcept {
+    auto meta_vec = std::make_shared<Vector>();
+    meta_vec->list_ = list_;
+    meta_vec->metadata_ = metadata;
+    return meta_vec;
 }
 
 String::String(std::string value) : value_(value) {}
@@ -124,6 +140,13 @@ bool HashMap::operator==(const MalType& other) const {
     }
     return true;
 }
+std::shared_ptr<MalType> HashMap::WithMeta(
+    std::shared_ptr<MalType> metadata) const noexcept {
+    auto meta_map = std::make_shared<HashMap>();
+    meta_map->map_ = map_;
+    meta_map->metadata_ = metadata;
+    return meta_map;
+}
 const HashMap::value_type& HashMap::operator*() const noexcept { return map_; }
 HashMap::value_type& HashMap::operator*() noexcept { return map_; }
 HashMap::value_type* HashMap::operator->() noexcept { return &map_; }
@@ -146,6 +169,12 @@ std::string MalFunc::PrStr(bool print_readably) const noexcept {
 }
 
 BaseFunc::BaseFunc(FuncType func) : func_(std::move(func)) {}
+std::shared_ptr<MalType> BaseFunc::WithMeta(
+    std::shared_ptr<MalType> metadata) const noexcept {
+    auto meta_fun = std::make_shared<BaseFunc>(func_);
+    meta_fun->metadata_ = metadata;
+    return meta_fun;
+}
 BaseFunc::ReturnType BaseFunc::operator()(ParamType args) const {
     return func_(args);
 }
@@ -157,8 +186,21 @@ UserFunc::UserFunc(std::shared_ptr<MalType> ast,
       params_(std::move(params)),
       env_(std::move(env)),
       callback_(std::move(callback)) {}
+std::shared_ptr<MalType> UserFunc::WithMeta(
+    std::shared_ptr<MalType> metadata) const noexcept {
+    auto meta_fun = std::make_shared<UserFunc>(ast_, params_, env_, callback_);
+    meta_fun->is_macro_ = is_macro_;
+    meta_fun->metadata_ = metadata;
+    return meta_fun;
+}
 UserFunc::ReturnType UserFunc::operator()(ParamType args) const {
     return callback_(args, *this);
+}
+std::shared_ptr<UserFunc> UserFunc::MakeMacro() const noexcept {
+    auto macro_func =
+        std::make_shared<UserFunc>(ast_, params_, env_, callback_);
+    macro_func->is_macro_ = true;
+    return macro_func;
 }
 
 Atom::Atom(value_type value) : value_(std::move(value)) {}

@@ -240,6 +240,7 @@ int main(int argc, const char* argv[]) {
                              std::span<std::shared_ptr<MalType>> args) {
                              return Eval(args[0], env.lock());
                          }));
+    env->Set("*host-language*", std::make_shared<String>("CPP"));
 
     Rep("(def! not (fn* (a) (if a false true)))", env);
     Rep("(def! load-file (fn* (f) (eval (read-string (str \"(do \" (slurp f) "
@@ -259,6 +260,8 @@ int main(int argc, const char* argv[]) {
         return 0;
     }
     env->Set("*ARGV*", std::move(list));
+
+    Rep("(println (str \" Mal[\" *host-language* \"] \"))", env);
 
     char* line;
     while ((line = linenoise("user> ")) != NULL) {

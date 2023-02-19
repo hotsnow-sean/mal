@@ -45,7 +45,20 @@ private:
     int value_;
 };
 
-class Sequence : public MalType {
+class MalMeta : public MalType {
+public:
+    virtual std::shared_ptr<MalType> WithMeta(
+        std::shared_ptr<MalType> metadata) const noexcept = 0;
+
+    constexpr const std::shared_ptr<MalType>& get_meta() const noexcept {
+        return metadata_;
+    }
+
+protected:
+    std::shared_ptr<MalType> metadata_{MalType::Nil};
+};
+
+class Sequence : public MalMeta {
 public:
     using value_type = std::vector<std::shared_ptr<MalType>>;
 
@@ -58,14 +71,18 @@ protected:
     value_type list_;
 };
 
-class List : public Sequence {
+class List final : public Sequence {
 public:
     std::string PrStr(bool print_readably) const noexcept override;
+    std::shared_ptr<MalType> WithMeta(
+        std::shared_ptr<MalType> metadata) const noexcept override;
 };
 
-class Vector : public Sequence {
+class Vector final : public Sequence {
 public:
     std::string PrStr(bool print_readably) const noexcept override;
+    std::shared_ptr<MalType> WithMeta(
+        std::shared_ptr<MalType> metadata) const noexcept override;
 };
 
 class String : public MalType {
@@ -91,13 +108,15 @@ struct Hasher {
     size_t operator()(const String& s) const;
 };
 
-class HashMap : public MalType {
+class HashMap : public MalMeta {
 public:
     using value_type =
         std::unordered_map<String, std::shared_ptr<MalType>, Hasher>;
 
     std::string PrStr(bool print_readably) const noexcept override;
     bool operator==(const MalType& other) const override;
+    std::shared_ptr<MalType> WithMeta(
+        std::shared_ptr<MalType> metadata) const noexcept override;
 
     const value_type& operator*() const noexcept;
     value_type& operator*() noexcept;
@@ -123,7 +142,7 @@ public:
     bool operator==(const MalType& other) const override;
 };
 
-class MalFunc : public MalType {
+class MalFunc : public MalMeta {
 public:
     using ParamType = std::span<std::shared_ptr<MalType>>;
     using ReturnType = std::shared_ptr<MalType>;
@@ -138,6 +157,8 @@ public:
 
     BaseFunc(FuncType func);
 
+    std::shared_ptr<MalType> WithMeta(
+        std::shared_ptr<MalType> metadata) const noexcept override;
     ReturnType operator()(ParamType args) const override;
 
 private:
@@ -152,6 +173,8 @@ public:
     UserFunc(std::shared_ptr<MalType> ast, std::vector<std::string> params,
              std::shared_ptr<Env> env, Callback callback) noexcept;
 
+    std::shared_ptr<MalType> WithMeta(
+        std::shared_ptr<MalType> metadata) const noexcept override;
     ReturnType operator()(ParamType args) const override;
 
     constexpr const std::shared_ptr<MalType>& get_ast() const noexcept {
@@ -164,7 +187,8 @@ public:
         return env_;
     }
     constexpr bool is_macro() const noexcept { return is_macro_; }
-    constexpr void macro(bool val) noexcept { is_macro_ = val; }
+
+    std::shared_ptr<UserFunc> MakeMacro() const noexcept;
 
 private:
     std::shared_ptr<MalType> ast_;

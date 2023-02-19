@@ -2,8 +2,10 @@
 
 #include <fmt/core.h>
 
+#include <chrono>
 #include <fstream>
 
+#include "linenoise.h"
 #include "reader.h"
 
 using namespace std::literals;
@@ -374,6 +376,95 @@ const std::unordered_map<std::string_view, BaseFunc::FuncType>& getNS() {
                  (*vals)->push_back(v);
              }
              return vals;
+         }},
+        {"readline"sv,
+         [](MalFunc::ParamType args) -> std::shared_ptr<MalType> {
+             auto prompt = std::dynamic_pointer_cast<String>(args[0]);
+             if (auto line = linenoise((*prompt)->c_str())) {
+                 auto input = std::make_shared<String>(line);
+                 linenoiseFree(line);
+                 return input;
+             }
+             return MalType::Nil;
+         }},
+        {"time-ms"sv,
+         [](MalFunc::ParamType args) -> std::shared_ptr<MalType> {
+             auto cur = std::chrono::high_resolution_clock::now();
+             auto now =
+                 std::chrono::time_point_cast<std::chrono::milliseconds>(cur);
+             return std::make_shared<Number>(now.time_since_epoch().count());
+         }},
+        {"meta"sv,
+         [](MalFunc::ParamType args) -> std::shared_ptr<MalType> {
+             return std::dynamic_pointer_cast<MalMeta>(args[0])->get_meta();
+         }},
+        {"with-meta"sv,
+         [](MalFunc::ParamType args) -> std::shared_ptr<MalType> {
+             return std::dynamic_pointer_cast<MalMeta>(args[0])->WithMeta(
+                 args[1]);
+         }},
+        {"fn?"sv,
+         [](MalFunc::ParamType args) -> std::shared_ptr<MalType> {
+             if (auto f = std::dynamic_pointer_cast<UserFunc>(args[0])) {
+                 return f->is_macro() ? MalType::False : MalType::True;
+             }
+             return std::dynamic_pointer_cast<BaseFunc>(args[0])
+                        ? MalType::True
+                        : MalType::False;
+         }},
+        {"string?"sv,
+         [](MalFunc::ParamType args) -> std::shared_ptr<MalType> {
+             if (auto str = std::dynamic_pointer_cast<String>(args[0])) {
+                 return str->IsKeyWord() ? MalType::False : MalType::True;
+             }
+             return MalType::False;
+         }},
+        {"number?"sv,
+         [](MalFunc::ParamType args) -> std::shared_ptr<MalType> {
+             return std::dynamic_pointer_cast<Number>(args[0]) ? MalType::True
+                                                               : MalType::False;
+         }},
+        {"seq"sv,
+         [](MalFunc::ParamType args) -> std::shared_ptr<MalType> {
+             if (auto seq = std::dynamic_pointer_cast<Sequence>(args[0])) {
+                 if ((*seq)->empty()) return MalType::Nil;
+                 auto list = std::dynamic_pointer_cast<List>(seq);
+                 if (!list) {
+                     list = std::make_shared<List>();
+                     (*list)->assign((*seq)->begin(), (*seq)->end());
+                 }
+                 return list;
+             } else if (auto str = std::dynamic_pointer_cast<String>(args[0])) {
+                 if ((*str)->empty()) return MalType::Nil;
+                 auto list = std::make_shared<List>();
+                 for (auto c : (**str)) {
+                     (*list)->push_back(
+                         std::make_shared<String>(std::string{c}));
+                 }
+                 return list;
+             }
+             return MalType::Nil;
+         }},
+        {"conj"sv,
+         [](MalFunc::ParamType args) -> std::shared_ptr<MalType> {
+             if (auto l = std::dynamic_pointer_cast<List>(args[0])) {
+                 auto list = std::make_shared<List>();
+                 (*list)->assign(args.rbegin(), args.rend() - 1);
+                 (*list)->insert((*list)->end(), (*l)->begin(), (*l)->end());
+                 return list;
+             }
+             auto v = std::dynamic_pointer_cast<Vector>(args[0]);
+             auto vec = std::make_shared<Vector>();
+             (*vec)->assign((*v)->begin(), (*v)->end());
+             (*vec)->insert((*vec)->end(), args.begin() + 1, args.end());
+             return vec;
+         }},
+        {"macro?"sv,
+         [](MalFunc::ParamType args) -> std::shared_ptr<MalType> {
+             if (auto f = std::dynamic_pointer_cast<UserFunc>(args[0])) {
+                 return f->is_macro() ? MalType::True : MalType::False;
+             }
+             return MalType::False;
          }},
     };
     return map;

@@ -210,13 +210,21 @@ std::shared_ptr<MalType> ReadForm(Reader& reader) {
         (*list)->assign(
             {std::make_shared<Symbol>("splice-unquote"), ReadForm(reader)});
         return list;
+    } else if (token == "^") {
+        reader.Next();
+        auto list = std::make_shared<List>();
+        auto val = ReadForm(reader);
+        (*list)->assign(
+            {std::make_shared<Symbol>("with-meta"), ReadForm(reader), val});
+        return list;
     } else
         return ReadAtom(reader);
 }
 
 std::shared_ptr<MalType> ReadStr(std::string_view str) {
     auto list = Tokenize(str);
-    if (list.empty()) throw std::nullptr_t{};  // means to no token
+    // if (list.empty()) throw std::nullptr_t{};  // means to no token
+    if (list.empty()) return MalType::Nil;  // means to no token
     Reader reader(std::move(list));
     return ReadForm(reader);
 }

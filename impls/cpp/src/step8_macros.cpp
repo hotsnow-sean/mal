@@ -175,9 +175,9 @@ std::shared_ptr<MalType> Eval(std::shared_ptr<MalType> ast,
                     continue;
                 } else if (action == "defmacro!") {
                     auto symbol = **std::dynamic_pointer_cast<Symbol>(*(++it));
-                    auto value = Eval(*(++it), env);
-                    std::dynamic_pointer_cast<UserFunc>(value)->macro(true);
-                    env->Set(std::move(symbol), value);
+                    auto value =
+                        std::dynamic_pointer_cast<UserFunc>(Eval(*(++it), env));
+                    env->Set(std::move(symbol), value->MakeMacro());
                     return value;
                 } else if (action == "macroexpand") {
                     return MacroExpand(*(++it), env);
